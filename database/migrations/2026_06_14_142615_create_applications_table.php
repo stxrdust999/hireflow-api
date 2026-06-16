@@ -16,7 +16,7 @@ return new class extends Migration
             $table->uuid('job_id');
             $table->uuid('current_stage_id')->nullable();
             $table->foreignId('candidate_id')->constrained('users')->cascadeOnDelete();
-            $table->foreign('job_id')->references('id')->on('job_listings')->cascadeOnDelete();
+            $table->foreign('job_id')->references('id')->on('job_openings')->cascadeOnDelete();
             $table->foreign('current_stage_id')->references('id')->on('job_stages')->nullOnDelete();
             $table->string('resume_url')->nullable();
             $table->enum('status', ['pending', 'in_progress', 'approved', 'rejected', 'withdrawn'])->default('pending');

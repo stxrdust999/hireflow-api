@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('job_stages', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->uuid('job_id');
-            $table->foreign('job_id')->references('id')->on('job_listings')->cascadeOnDelete();
+            $table->foreign('job_id')->references('id')->on('job_openings')->cascadeOnDelete();
             $table->string('name');
             $table->unsignedInteger('order');
             $table->timestamps();
