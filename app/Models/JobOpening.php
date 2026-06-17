@@ -9,6 +9,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * Representa uma vaga de emprego aberta por uma empresa.
+ *
+ * Represents a job opening created by a company.
+ */
 class JobOpening extends Model
 {
     use HasFactory, HasUuids;
@@ -23,24 +28,29 @@ class JobOpening extends Model
     ];
 
     /**
-     * Uma vaga tem um unico criador.
-     * A job has only one creator.
-     * @return HasOne<User, JobOpening>
+     * Uma vaga de emprego foi criada por um usuário.
+     *
+     * A job opening was created by a user.
      */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Uma vaga possui várias etapas no processo seletivo.
+     *
+     * A job opening has many stages in the recruitment process.
+     */
     public function stages(): HasMany
     {
         return $this->hasMany(JobStage::class, 'job_id');
     }
 
     /**
-     * Uma vaga pertence a uma empresa // uma empresa é dona de uma vaga.
-     * A job belongs to a company // a company is owner of a job. :)
-     * @return BelongsTo<Company, JobOpening>
+     * Uma vaga pertence a uma empresa contratante.
+     *
+     * A job opening belongs to a hiring company.
      */
     public function company(): BelongsTo
     {

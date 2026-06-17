@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * Representa o histórico de movimentação de etapas de uma candidatura.
+ *
+ * Represents the history of stage transitions for an application.
+ */
 class ApplicationStageLog extends Model
 {
     use HasFactory, HasUuids;
@@ -19,20 +24,30 @@ class ApplicationStageLog extends Model
     ];
 
     /**
-     * tem um autor de 'movimentação' de um passo pra outro
+     * O registro de mudança de etapa foi realizado por um usuário (recrutador).
+     *
+     * The stage transition was performed by a user (recruiter).
      */
     public function movedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'moved_by');
     }
 
-    // um passo atual de vaga pertente, obviamente, a uma vaga
+    /**
+     * O registro de histórico pertence a uma candidatura.
+     *
+     * The history log belongs to an application.
+     */
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);
     }
 
-    // um passo de vaga possui um (por vez, has one) tipo de passo de vaga.
+    /**
+     * O registro de histórico está associado a uma etapa do processo seletivo.
+     *
+     * The history log is associated with a job stage.
+     */
     public function stage(): BelongsTo
     {
         return $this->belongsTo(JobStage::class);
