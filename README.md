@@ -1,58 +1,98 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# HireFlow | Applicant Tracking System (ATS)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**HireFlow** is a comprehensive recruitment management platform developed as a technical portfolio project to demonstrate a professional, full-stack architecture. Designed to centralize the entire hiring lifecycle—from job opening creation to the final contract—it bridges the gap between candidates and internal teams (HR and Hiring Managers) through a structured, enterprise-grade evaluation pipeline.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🏗️ Architecture & Philosophy
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+HireFlow is built as a **decoupled system**, mimicking high-scale corporate environments where the frontend and backend live in separate ecosystems.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **[hireflow-api](./docs/02-architecture.md#hireflow-api-laravel):** A robust Laravel 11 REST API managing business logic, RBAC, and data persistence.
+- **[hireflow-web](./docs/02-architecture.md#hireflow-web-nextjs):** A modern Next.js 14 frontend (🚧 in construction) that consumes the API via strictly typed contracts generated from Swagger.
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## ✨ Key Features
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- **Dynamic Pipeline:** Candidates move through customizable stages (Screening, Technical Interview, Offer) with a full audit log of every movement.
+- **Advanced RBAC:** Fine-grained permissions for 4 personas: `Candidate`, `Recruiter`, `Hiring Manager`, and `Admin`.
+- **Collaborative Hiring:** Internal comments and evaluations that keep the conversation organized within the candidate's profile.
+- **Async Notifications:** Emails and system alerts handled via Redis queues to ensure zero-latency API responses.
+- **Social Auth:** Seamless onboarding via LinkedIn OAuth integration.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+---
 
-## Agentic Development
+## 🛠️ Tech Stack
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+### Backend (hireflow-api)
 
-```bash
-composer require laravel/boost --dev
+- **Framework:** Laravel 11 / PHP 8.2+
+- **Database:** MySQL 8.0 (Persistence)
+- **Cache/Queue:** Redis 7 (Speed & Async Jobs)
+- **Auth:** Laravel Sanctum (SPA/API) + Socialite (OAuth)
+- **Documentation:** L5-Swagger (OpenAPI 3.0)
 
-php artisan boost:install
-```
+### Frontend (hireflow-web)
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+- **Framework:** Next.js 14 (App Router)
+- **State/Data:** TanStack Query + Orval (Auto-generated API clients)
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## 🚀 Quick Start (API)
 
-## Code of Conduct
+### Prerequisites
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- [Laravel Herd](https://herd.laravel.com/) (Recommended) or PHP 8.2+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for MySQL and Redis)
+- [Composer](https://getcomposer.org/)
 
-## Security Vulnerabilities
+### Installation
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+1.  **Clone & Install:**
 
-## License
+    ```bash
+    git clone https://github.com/your-repo/hireflow-api.git
+    cd hireflow-api
+    composer install
+    ```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+2.  **Environment Setup:**
+
+    ```bash
+    cp .env.example .env
+    php artisan key:generate
+    ```
+
+    \_Note: Remember to configure your `DB\__`and`REDIS\__`variables in the`.env` file.\_
+
+3.  **Database & Infrastructure:**
+
+    ```bash
+    docker compose up -d
+    php artisan migrate --seed
+    ```
+
+4.  **Serve:**
+    If using Laravel Herd, the project is available at `http://hireflow-api.test`. Otherwise, run:
+    ```bash
+    php artisan serve
+    ```
+
+---
+
+## 📖 Detailed Documentation
+
+The project includes exhaustive documentation covering every aspect of the system and can all be found in the **[Wiki](https://github.com/stxrdust999/hireflow-api/wiki)** of the project:
+
+1.  **[Introduction](https://github.com/stxrdust999/hireflow-api/wiki/01-%E2%80%94-Introdu%C3%A7%C3%A3o-%F0%9F%91%8B):** Project vision and problem-solving.
+2.  **[Architecture](https://github.com/stxrdust999/hireflow-api/wiki/02-%E2%80%94-Arquitetura-%F0%9F%8F%97%EF%B8%8F):** Deep dive into the dual-system setup.
+3.  **[Database Schema](https://github.com/stxrdust999/hireflow-api/wiki/03-%E2%80%94-Banco-de-Dados-%F0%9F%97%84%EF%B8%8F):** Entity-relationship diagrams and UUID strategy.
+4.  **[Authentication](github.com/stxrdust999/hireflow-api/wiki/04-—-Autenticação-%F0%9F%94%90):** Sanctum flow and LinkedIn integration.
+5.  **[Roles & Permissions](https://github.com/stxrdust999/hireflow-api/wiki/05-%E2%80%94-Roles-&-Permiss%C3%B5es-%F0%9F%9B%A1%EF%B8%8F):** The logic behind the RBAC system.
+6.  **[Recruitment Pipeline](https://github.com/stxrdust999/hireflow-api/wiki/06-%E2%80%94-Pipeline-de-Vagas-%F0%9F%94%84):** How the stage logic works.
+7.  **[API Conventions](https://github.com/stxrdust999/hireflow-api/wiki/07-%E2%80%94-Conven%C3%A7%C3%B5es-da-API-%F0%9F%93%A1):** REST patterns and response standards.
+8.  **[Use Cases](https://github.com/stxrdust999/hireflow-api/wiki/12-%E2%80%94-Casos-de-Uso-%F0%9F%8E%AC):** Step-by-step user journeys.
+
+> ⚠️ Not all topics that were covered in the wiki are listed here.
