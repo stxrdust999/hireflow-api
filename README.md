@@ -89,7 +89,7 @@ The project includes exhaustive documentation covering every aspect of the syste
 1.  **[Introduction](https://github.com/stxrdust999/hireflow-api/wiki/01-%E2%80%94-Introdu%C3%A7%C3%A3o-%F0%9F%91%8B):** Project vision and problem-solving.
 2.  **[Architecture](https://github.com/stxrdust999/hireflow-api/wiki/02-%E2%80%94-Arquitetura-%F0%9F%8F%97%EF%B8%8F):** Deep dive into the dual-system setup.
 3.  **[Database Schema](https://github.com/stxrdust999/hireflow-api/wiki/03-%E2%80%94-Banco-de-Dados-%F0%9F%97%84%EF%B8%8F):** Entity-relationship diagrams and UUID strategy.
-4.  **[Authentication](github.com/stxrdust999/hireflow-api/wiki/04-—-Autenticação-%F0%9F%94%90):** Sanctum flow and LinkedIn integration.
+4.  **[Authentication](https://github.com/stxrdust999/hireflow-api/wiki/04-%E2%80%94-Autentica%C3%A7%C3%A3o-%F0%9F%94%90):** Sanctum flow and LinkedIn integration.
 5.  **[Roles & Permissions](https://github.com/stxrdust999/hireflow-api/wiki/05-%E2%80%94-Roles-&-Permiss%C3%B5es-%F0%9F%9B%A1%EF%B8%8F):** The logic behind the RBAC system.
 6.  **[Recruitment Pipeline](https://github.com/stxrdust999/hireflow-api/wiki/06-%E2%80%94-Pipeline-de-Vagas-%F0%9F%94%84):** How the stage logic works.
 7.  **[API Conventions](https://github.com/stxrdust999/hireflow-api/wiki/07-%E2%80%94-Conven%C3%A7%C3%B5es-da-API-%F0%9F%93%A1):** REST patterns and response standards.
