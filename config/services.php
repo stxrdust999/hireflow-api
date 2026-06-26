@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'admin' => [
+        'name' => env('ADMIN_NAME', 'default_usr'),
+        'email' => env('ADMIN_EMAIL', 'default@usr.dft'),
+        'password' => env('ADMIN_PASSWORD', 'default_password')
+    ]
+
 ];
