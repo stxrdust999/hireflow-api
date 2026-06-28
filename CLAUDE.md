@@ -354,7 +354,7 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 - Admin credentials: configuráveis via `config/services.php` ← `.env` (`ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`)
 - `/docs/`: 12 arquivos de documentação (introdução à glossary)
 - Repositório remoto: atualizado
-- **Próximo passo: Controllers + Routes + Requests**
+- **Próximo passo: Services**
 
 ## Arquitetura de Services
 
