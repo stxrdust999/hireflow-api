@@ -2,6 +2,8 @@
 
 ## O que é o HireFlow?
 
+# **TESTE!**
+
 HireFlow é um **sistema de rastreamento de candidatos** (ATS — Applicant Tracking System) desenvolvido para gerenciar todo o ciclo de recrutamento de uma empresa: desde a abertura de uma vaga até a contratação do candidato.
 
 O sistema possui dois ambientes distintos que coexistem:
@@ -30,15 +32,19 @@ O HireFlow centraliza tudo isso em um único lugar, com rastreabilidade completa
 O sistema é projetado para quatro tipos de usuários, cada um com responsabilidades e acessos distintos:
 
 ### Candidato
+
 Pessoa externa à empresa que está em busca de uma oportunidade. Acessa o portal público, visualiza as vagas disponíveis, se inscreve e acompanha o status da sua candidatura.
 
 ### Recrutador
+
 Profissional de RH responsável por criar e publicar vagas, receber as candidaturas e conduzir as primeiras etapas do processo seletivo (triagem e entrevista de RH). Tem acesso ao painel interno.
 
 ### Hiring Manager
+
 Gestor da área que abriu a vaga (ex: gerente de engenharia, head de produto). Participa das etapas técnicas do processo, avalia candidatos nas vagas sob sua responsabilidade e adiciona comentários internos. Tem acesso restrito ao painel interno — apenas às vagas que lhe dizem respeito.
 
 ### Administrador
+
 Responsável pela configuração e manutenção do sistema. Gerencia usuários, atribui roles e tem acesso irrestrito a todas as funcionalidades.
 
 ---
