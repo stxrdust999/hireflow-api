@@ -21,6 +21,7 @@ class ApplicationStageLog extends Model
         'application_id',
         'stage_id',
         'moved_by',
+        'moved_at'
     ];
 
     /**
