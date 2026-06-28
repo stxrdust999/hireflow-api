@@ -30,7 +30,8 @@ class ApplicationStageLogFactory extends Factory
                     'job_id' => $application->job_id,
                 ])->id;
             },
-            'moved_by' => User::factory()
+            'moved_by' => User::factory(),
+            'moved_at' => fake()->dateTimeBetween('-6 months', 'now')
         ];
     }
 }
