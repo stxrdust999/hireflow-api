@@ -1,0 +1,40 @@
+name: Sincronizar Docs para Wiki
+
+on:
+  push:
+    branches:
+      - main # Ou a branch que você usa para os docs
+    paths:
+      - "docs/**" # Só dispara se algo na pasta docs mudar
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do repositório principal
+        uses: actions/checkout@v4
+
+      - name: Configurar Git
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+
+      - name: Sincronizar com a Wiki
+        env:
+          # O GITHUB_TOKEN é gerado automaticamente pelo Actions
+          # Mas precisamos de permissões de escrita na Wiki
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Clona o repositório da Wiki
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git wiki
+
+          # Remove arquivos antigos da wiki (opcional, cuidado se tiver arquivos manuais lá)
+          # rm -rf wiki/*
+
+          # Copia os arquivos novos da pasta docs para a pasta wiki
+          cp -r docs/* wiki/
+
+          # Entra na pasta da wiki e faz o commit
+          cd wiki
+          git add .
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Atualizando Wiki via CI/CD - ref: ${{ github.sha }}" && git push)
