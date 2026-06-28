@@ -161,8 +161,9 @@ As roles vivem na tabela `roles` e a relação com usuários é via `user_roles`
 Toda vaga criada ganha estas etapas por padrão (customizáveis pelo recrutador):
 
 ```
-Triagem → Entrevista RH → Entrevista Técnica → Proposta → Contratado
+screening → hr-interview → technical-interview → offer → hired
 ```
+(Sigla em inglês no código; em português: Triagem → Entrevista RH → Entrevista Técnica → Proposta → Contratado)
 
 Cada movimentação de etapa:
 1. Gera um registro em `application_stage_logs` (auditoria completa)
@@ -307,7 +308,7 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 2. ~~Instalar dependências~~ ✓
 3. ~~Migrations~~ ✓
 4. ~~Models + Relationships~~ ✓
-5. **Factories & Seeders** ← próximo passo
+5. ~~Factories & Seeders~~ ✓
 6. Controllers + Routes + Requests
 7. Policies
 8. Swagger
@@ -322,4 +323,18 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 - Migrations: todas rodadas com `migrate:fresh`
 - Models: todas criadas com traits e relacionamentos corretos
 - Repositório remoto: atualizado
-- **Próximo passo: Factories & Seeders**
+- Factories: **8 factories criadas** (User, Role, Company, JobOpening, JobStage, Application, ApplicationStageLog, Comment, Notification)
+- Seeders: **9 seeders criados** — orquestrados pelo `DatabaseSeeder`
+  - `RoleSeeder`: 4 roles (admin, recruiter, hiring-manager, candidate)
+  - `UserSeeder`: admin via `.env` + 5 recruiters + 5 HMs + 20 candidates (31 total)
+  - `CompanySeeder`: 15 empresas aleatórias via `CompanyFactory`
+  - `JobOpeningSeeder`: 20 vagas vinculadas a empresas e recrutadores existentes
+  - `JobStageSeeder`: 5 etapas em inglês (`screening` → `hired`) por vaga
+  - `ApplicationSeeder`: 40 candidaturas com candidate, vaga e etapa selecionados aleatoriamente
+  - `ApplicationStageLogSeeder`: 60 registros de movimentação (`moved_by` = recruiter ou HM)
+  - `CommentSeeder`: 50 comentários (autores: recruiters, HMs e candidates)
+  - `NotificationSeeder`: 80 notificações para todos os usuários; lógica de payload inline no Seeder (não usa `NotificationFactory`)
+- Admin credentials: configuráveis via `config/services.php` ← `.env` (`ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`)
+- `/docs/`: 12 arquivos de documentação (introdução à glossary)
+- Repositório remoto: atualizado
+- **Próximo passo: Controllers + Routes + Requests**

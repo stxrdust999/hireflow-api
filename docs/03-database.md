@@ -181,13 +181,15 @@ Etapas do pipeline de cada vaga. Cada vaga tem suas próprias etapas, criadas co
 
 **Etapas padrão criadas para toda nova vaga:**
 
-| Order | Nome               |
-| ----- | ------------------ |
-| 1     | Triagem            |
-| 2     | Entrevista RH      |
-| 3     | Entrevista Técnica |
-| 4     | Proposta           |
-| 5     | Contratado         |
+| Order | Nome (código)      | Descrição               |
+| ----- | ------------------ | ----------------------- |
+| 1     | `screening`        | Triagem                 |
+| 2     | `hr-interview`     | Entrevista RH           |
+| 3     | `technical-interview` | Entrevista Técnica   |
+| 4     | `offer`            | Proposta                |
+| 5     | `hired`            | Contratado              |
+
+> Os nomes em inglês são usados no banco e no código; as descrições em português são exibidas na interface do usuário.
 
 ---
 
@@ -300,3 +302,61 @@ Gerada automaticamente pelo Sanctum ao publicar o provider. Armazena os tokens d
 | Deletar `job_stage`   | `applications.current_stage_id` vira `null` (nullOnDelete)                   |
 
 Para detalhes sobre autenticação e como os usuários acessam esses dados, veja [Autenticação](./04-auth.md).
+
+---
+
+## Factories & Seeders
+
+### Factories
+
+Todas em `database/factories/`. Ligadas aos models via trait `HasFactory`.
+
+| Factory | O que gera |
+|---|---|
+| `UserFactory` | Nome, email, senha (`password`), email verificado |
+| `RoleFactory` | Nome e slug aleatórios |
+| `CompanyFactory` | Nome único, slug, logo_url |
+| `JobOpeningFactory` | Título, descrição, local, type, status. Cria company e user aninhados |
+| `JobStageFactory` | Nome e order |
+| `ApplicationFactory` | Cria candidate, job e current_stage aninhados |
+| `ApplicationStageLogFactory` | Cria application, stage e moved_by aninhados |
+| `CommentFactory` | Cria application e author aninhados, body textual |
+| `NotificationFactory` | 10 tipos de notificação com payload JSON consistente |
+
+A `NotificationFactory` é a mais complexa: seu método `generateNotificationData()` constrói o payload `data` conforme o tipo — `application_received`, `application_advanced`, `application_rejected`, `application_proposal`, `application_hired`, `application_withdrawn`, `application_closed`, `interview_scheduled`, `job_deadline_near`, `stage_pending_review`.
+
+### Seeders
+
+Orquestrados pelo `DatabaseSeeder` na ordem:
+
+```
+RoleSeeder → UserSeeder → CompanySeeder → JobOpeningSeeder → JobStageSeeder
+→ ApplicationSeeder → ApplicationStageLogSeeder → CommentSeeder → NotificationSeeder
+```
+
+O que cada seeder produz:
+
+| Seeder | O que cria |
+|---|---|
+| `RoleSeeder` | 4 roles: admin, recruiter, hiring-manager, candidate |
+| `UserSeeder` | 1 admin (credenciais do `.env` via `config/services.php`), 5 recruiters, 5 HMs, 20 candidates |
+| `CompanySeeder` | Empresas aleatórias via factory |
+| `JobOpeningSeeder` | 20 vagas vinculadas a empresas e recruiters existentes |
+| `JobStageSeeder` | 5 etapas por vaga: `screening`, `hr-interview`, `technical-interview`, `offer`, `hired` |
+| `ApplicationSeeder` | Candidaturas distribuindo candidates pelas vagas |
+| `ApplicationStageLogSeeder` | Histórico de movimentações simuladas |
+| `CommentSeeder` | Comentários internos de recrutadores/HMs |
+| `NotificationSeeder` | Notificações mockadas para os candidatos |
+
+### Como executar
+
+```bash
+# Do zero
+php artisan migrate:fresh --seed
+
+# Apenas seeders
+php artisan db:seed
+
+# Seeder específico
+php artisan db:seed --class=RoleSeeder
+```
