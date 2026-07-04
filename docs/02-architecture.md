@@ -4,19 +4,16 @@
 
 O HireFlow é composto por dois sistemas completamente independentes que se comunicam exclusivamente via HTTP. Não há compartilhamento de código, banco de dados ou qualquer recurso entre eles.
 
-```
-┌─────────────────────────────┐         ┌─────────────────────────────┐
-│        hireflow-web         │         │        hireflow-api         │
-│         (Next.js)           │──HTTP──▶│         (Laravel)           │
-│                             │◀──JSON──│                             │
-└─────────────────────────────┘         └──────────────┬──────────────┘
-                                                       │
-                                          ┌────────────┴────────────┐
-                                          │                         │
-                                    ┌─────▼──────┐         ┌───────▼──────┐
-                                    │   MySQL    │         │    Redis     │
-                                    │   8.0      │         │  7-alpine    │
-                                    └────────────┘         └──────────────┘
+```mermaid
+flowchart TD
+    web["hireflow-web<br/>(Next.js)"]
+    api["hireflow-api<br/>(Laravel)"]
+    mysql[("MySQL 8.0")]
+    redis[("Redis 7-alpine")]
+    web -- HTTP --> api
+    api -- JSON --> web
+    api --> mysql
+    api --> redis
 ```
 
 ---
@@ -91,32 +88,16 @@ O Laravel possui um sistema de filas nativo que pode usar diferentes drivers. O 
 
 Para ilustrar como os sistemas interagem, segue o fluxo completo de uma candidatura:
 
-```
-Candidato clica em "Me candidatar"
-        │
-        ▼
-hireflow-web envia POST /api/v1/applications
-        │
-        ▼
-hireflow-api valida o token Sanctum (autenticação)
-        │
-        ▼
-hireflow-api verifica se o usuário tem role "candidate" (autorização)
-        │
-        ▼
-hireflow-api persiste a candidatura no MySQL
-        │
-        ▼
-hireflow-api enfileira uma notificação no Redis
-        │
-        ▼
-hireflow-api retorna 201 Created com os dados da candidatura
-        │
-        ▼
-hireflow-web exibe confirmação ao candidato
-        │
-        ▼ (assíncrono, em background)
-Worker do Laravel processa a fila e envia e-mail ao candidato
+```mermaid
+flowchart TD
+    A["Candidato clica em 'Me candidatar'"] --> B["hireflow-web envia POST /api/v1/applications"]
+    B --> C["hireflow-api valida token Sanctum (autenticação)"]
+    C --> D["hireflow-api verifica role 'candidate' (autorização)"]
+    D --> E["hireflow-api persiste candidatura no MySQL"]
+    E --> F["hireflow-api enfileira notificação no Redis"]
+    F --> G["hireflow-api retorna 201 Created com dados da candidatura"]
+    G --> H["hireflow-web exibe confirmação ao candidato"]
+    H -. "assíncrono, em background" .-> I["Worker do Laravel processa a fila e envia e-mail"]
 ```
 
 ---

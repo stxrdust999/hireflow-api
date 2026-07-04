@@ -12,19 +12,20 @@ Cada vaga possui seu próprio pipeline, composto por etapas ordenadas. A movimen
 
 Toda vaga criada no HireFlow recebe automaticamente cinco etapas padrão, nessa ordem:
 
-```
-┌──────────┐     ┌───────────────┐     ┌─────────────────────┐     ┌─────────┐     ┌────────────┐
-│ Triagem  │ ──▶ │ Entrevista RH │ ──▶ │ Entrevista Técnica  │ ──▶ │Proposta │ ──▶ │ Contratado │
-└──────────┘     └───────────────┘     └─────────────────────┘     └─────────┘     └────────────┘
+```mermaid
+flowchart LR
+    A["Triagem<br/>(screening)"] --> B["Entrevista RH<br/>(hr-interview)"] --> C["Entrevista Técnica<br/>(technical-interview)"] --> D["Proposta<br/>(offer)"] --> E["Contratado<br/>(hired)"]
 ```
 
-| Order | Nome | Responsável típico | Descrição |
-|---|---|---|---|
-| 1 | Triagem | Recruiter | Análise inicial do currículo e perfil do candidato |
-| 2 | Entrevista RH | Recruiter | Entrevista comportamental e alinhamento cultural |
-| 3 | Entrevista Técnica | Hiring Manager | Avaliação das competências técnicas exigidas pela vaga |
-| 4 | Proposta | Recruiter | Apresentação e negociação da proposta salarial |
-| 5 | Contratado | Recruiter | Candidato aceito — processo encerrado com sucesso |
+| Order | Slug | Nome | Responsável típico | Descrição |
+|---|---|---|---|---|
+| 1 | `screening` | Triagem | Recruiter | Análise inicial do currículo e perfil do candidato |
+| 2 | `hr-interview` | Entrevista RH | Recruiter | Entrevista comportamental e alinhamento cultural |
+| 3 | `technical-interview` | Entrevista Técnica | Hiring Manager | Avaliação das competências técnicas exigidas pela vaga |
+| 4 | `offer` | Proposta | Recruiter | Apresentação e negociação da proposta salarial |
+| 5 | `hired` | Contratado | Recruiter | Candidato aceito — processo encerrado com sucesso |
+
+> O `slug` (em inglês) é o valor persistido em `job_stages.name` pelo `JobStageSeeder` e usado no código. O nome em português é apenas o rótulo de exibição.
 
 As etapas são customizáveis pelo recrutador ao criar ou editar uma vaga. A ordem pode ser alterada e novas etapas podem ser adicionadas conforme a necessidade do processo seletivo.
 
@@ -46,37 +47,17 @@ Além da etapa atual no pipeline, cada candidatura possui um status que represen
 
 ## Ciclo de vida de uma candidatura
 
-```
-Candidato se inscreve
-        │
-        ▼
-  status: pending
-  current_stage: Triagem
-        │
-        │ Recruiter avalia e decide avançar
-        ▼
-  status: in_progress
-  current_stage: Entrevista RH
-        │
-        │ Recruiter avalia e decide avançar
-        ▼
-  current_stage: Entrevista Técnica
-        │
-        ├── Hiring Manager aprova ──▶ current_stage: Proposta
-        │                                     │
-        │                                     ▼
-        │                             current_stage: Contratado
-        │                             status: approved ✅
-        │
-        └── Hiring Manager reprova ──▶ status: rejected ❌
-                                        current_stage: permanece onde estava
-
-                    OU
-
-        Candidato desiste a qualquer momento
-                │
-                ▼
-        status: withdrawn ❌
+```mermaid
+flowchart TD
+    A["Candidato se inscreve"] --> B["status: pending<br/>current_stage: screening"]
+    B -->|Recruiter avança| C["status: in_progress<br/>current_stage: hr-interview"]
+    C -->|Recruiter avança| D["current_stage: technical-interview"]
+    D -->|Hiring Manager aprova| E["current_stage: offer"]
+    E --> F["current_stage: hired<br/>status: approved ✅"]
+    D -->|Hiring Manager reprova| G["status: rejected ❌<br/>current_stage: permanece onde estava"]
+    B -. "candidato desiste" .-> H["status: withdrawn ❌"]
+    C -. "candidato desiste" .-> H
+    D -. "candidato desiste" .-> H
 ```
 
 ---
@@ -85,15 +66,9 @@ Candidato se inscreve
 
 Toda movimentação de etapa gera um registro na tabela `application_stage_logs`. Esse registro é **imutável** — nunca é editado ou deletado.
 
-```
-Recrutador move candidato de "Triagem" para "Entrevista RH"
-        │
-        ▼
-application_stage_logs recebe:
-  application_id: <id da candidatura>
-  stage_id:       <id da etapa "Entrevista RH">
-  moved_by:       <id do recrutador>
-  moved_at:       2024-03-15 14:32:00
+```mermaid
+flowchart TD
+    A["Recrutador move candidato de 'screening' para 'hr-interview'"] --> B["application_stage_logs recebe:<br/>application_id: &lt;id da candidatura&gt;<br/>stage_id: &lt;id da etapa 'hr-interview'&gt;<br/>moved_by: &lt;id do recrutador&gt;<br/>moved_at: 2024-03-15 14:32:00"]
 ```
 
 Isso garante que qualquer pessoa com acesso ao sistema consiga responder:

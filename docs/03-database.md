@@ -34,56 +34,86 @@ Toda movimentação de um candidato no pipeline gera um registro imutável nessa
 
 ## Diagrama de entidades (ERD)
 
-```
-users ──────────────────────────────────────────────────────────┐
-  │ id (bigint)                                                  │
-  │ name                                                         │
-  │ email                                                        │
-  │ password_hash                                                │
-  │ provider (nullable)        ← 'linkedin' ou null             │
-  │ provider_id (nullable)     ← ID retornado pelo OAuth        │
-  │ email_verified_at                                            │
-  └──────┬──────────────────────────────────────────────────────┘
-         │                                                       │
-         │ N:N via user_roles                                    │ 1:N
-         ▼                                                       ▼
-       roles                                              job_openings
-         id (uuid)                                          id (uuid)
-         name                                               company_id ──▶ companies
-         slug                                               created_by ──▶ users
-                                                            title
-                                                            description
-                                                            location
-                                                            type (enum)
-                                                            status (enum)
-                                                                │
-                                                                │ 1:N
-                                                                ▼
-                                                          job_stages
-                                                            id (uuid)
-                                                            job_id
-                                                            name
-                                                            order (int)
-                                                                │
-                                                    ┌───────────┘
-                                                    │
-         users ──────────────────────────── applications
-                                              id (uuid)
-                                              job_id ──────────▶ job_openings
-                                              candidate_id ────▶ users
-                                              current_stage_id ▶ job_stages
-                                              resume_url
-                                              status (enum)
-                                                    │
-                                    ┌───────────────┼───────────────┐
-                                    │               │               │
-                                    ▼               ▼               ▼
-                         application_stage_logs  comments     notifications
-                           id (uuid)              id (uuid)     id (uuid)
-                           application_id         application_id user_id
-                           stage_id               author_id     type
-                           moved_by ──▶ users     body          data (json)
-                           moved_at                             read_at
+```mermaid
+erDiagram
+    users {
+        bigint id PK
+        string name
+        string email
+        string password_hash
+        string provider "nullable — 'linkedin' ou null"
+        string provider_id "nullable — ID do OAuth"
+        timestamp email_verified_at
+    }
+    roles {
+        uuid id PK
+        string name
+        string slug
+    }
+    companies {
+        uuid id PK
+        string name
+        string slug
+        string logo_url
+    }
+    job_openings {
+        uuid id PK
+        uuid company_id FK
+        bigint created_by FK
+        string title
+        text description
+        string location
+        enum type
+        enum status
+    }
+    job_stages {
+        uuid id PK
+        uuid job_id FK
+        string name
+        int order
+    }
+    applications {
+        uuid id PK
+        uuid job_id FK
+        bigint candidate_id FK
+        uuid current_stage_id FK
+        string resume_url
+        enum status
+    }
+    application_stage_logs {
+        uuid id PK
+        uuid application_id FK
+        uuid stage_id FK
+        bigint moved_by FK
+        timestamp moved_at
+    }
+    comments {
+        uuid id PK
+        uuid application_id FK
+        bigint author_id FK
+        text body
+    }
+    notifications {
+        uuid id PK
+        bigint user_id FK
+        string type
+        json data
+        timestamp read_at
+    }
+
+    users ||--o{ roles : "N:N via user_roles"
+    users ||--o{ job_openings : "cria (created_by)"
+    companies ||--o{ job_openings : "publica"
+    job_openings ||--o{ job_stages : "possui"
+    job_openings ||--o{ applications : "recebe"
+    users ||--o{ applications : "candidata (candidate_id)"
+    job_stages ||--o{ applications : "etapa atual"
+    applications ||--o{ application_stage_logs : "gera"
+    job_stages ||--o{ application_stage_logs : "registra"
+    users ||--o{ application_stage_logs : "move (moved_by)"
+    applications ||--o{ comments : "possui"
+    users ||--o{ comments : "autor (author_id)"
+    users ||--o{ notifications : "recebe"
 ```
 
 ---
@@ -251,35 +281,20 @@ Notificações in-app dos usuários. Armazena o tipo e um payload JSON flexível
 | `read_at`                   | timestamp, nullable | Null = não lida                                                      |
 | `created_at` / `updated_at` | timestamp           | —                                                                    |
 
-**Tipos de notificações usados no sistema**
+**Tipos de notificação e payload do campo `data`**
 
-| Evento                                | Tipo                    |
-| ------------------------------------- | ----------------------- |
-| Candidatura recebida                  | `application_received`  |
-| Avanço de etapa                       | `application_advanced`  |
-| Candidatura reprovada                 | `application_rejected`  |
-| Proposta enviada                      | `application_proposal`  |
-| Contratação confirmada                | `application_hired`     |
-| Candidato retirou candidatura         | `application_withdrawn` |
-| Encerramento formal do processo       | `application_closed`    |
-| Convite para entrevista 🚧            | `interview_scheduled`   |
-| Vaga salva próxima do encerramento 🚧 | `job_deadline_near`     |
-| Candidatos aguardando avaliação       | `stage_pending_review`  |
-
-**Estrutura do campo `data` por tipo de notificação**
-
-| Tipo                     | Payload (`data`)                                                                                    |
-| ------------------------ | --------------------------------------------------------------------------------------------------- |
-| `application_received`   | `{ "job_id": "uuid", "job_title": "string" }`                                                       |
-| `application_advanced`   | `{ "job_id": "uuid", "job_title": "string", "stage_name": "string", "application_id": "uuid" }`     |
-| `application_rejected`   | `{ "job_id": "uuid", "job_title": "string", "application_id": "uuid" }`                             |
-| `application_proposal`   | `{ "job_id": "uuid", "job_title": "string", "application_id": "uuid" }`                             |
-| `application_hired`      | `{ "job_id": "uuid", "job_title": "string", "application_id": "uuid" }`                             |
-| `application_withdrawn`  | `{ "job_id": "uuid", "job_title": "string", "candidate_name": "string", "application_id": "uuid" }` |
-| `application_closed`     | `{ "job_id": "uuid", "job_title": "string", "application_id": "uuid" }`                             |
-| `interview_scheduled` 🚧 | `{ "job_id": "uuid", "job_title": "string", "application_id": "uuid", "scheduled_at": "datetime" }` |
-| `job_deadline_near` 🚧   | `{ "job_id": "uuid", "job_title": "string", "closes_at": "datetime" }`                              |
-| `stage_pending_review`   | `{ "job_id": "uuid", "job_title": "string", "stage_name": "string", "pending_count": "int" }`       |
+| Evento                                | Tipo                    | Payload (`data`)                                                                                    |
+| ------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
+| Candidatura recebida                  | `application_received`  | `{ "job_id": "uuid", "job_title": "string" }`                                                       |
+| Avanço de etapa                       | `application_advanced`  | `{ "job_id": "uuid", "job_title": "string", "stage_name": "string", "application_id": "uuid" }`     |
+| Candidatura reprovada                 | `application_rejected`  | `{ "job_id": "uuid", "job_title": "string", "application_id": "uuid" }`                             |
+| Proposta enviada                      | `application_proposal`  | `{ "job_id": "uuid", "job_title": "string", "application_id": "uuid" }`                             |
+| Contratação confirmada                | `application_hired`     | `{ "job_id": "uuid", "job_title": "string", "application_id": "uuid" }`                             |
+| Candidato retirou candidatura         | `application_withdrawn` | `{ "job_id": "uuid", "job_title": "string", "candidate_name": "string", "application_id": "uuid" }` |
+| Encerramento formal do processo       | `application_closed`    | `{ "job_id": "uuid", "job_title": "string", "application_id": "uuid" }`                             |
+| Convite para entrevista 🚧            | `interview_scheduled`   | `{ "job_id": "uuid", "job_title": "string", "application_id": "uuid", "scheduled_at": "datetime" }` |
+| Vaga salva próxima do encerramento 🚧 | `job_deadline_near`     | `{ "job_id": "uuid", "job_title": "string", "closes_at": "datetime" }`                              |
+| Candidatos aguardando avaliação       | `stage_pending_review`  | `{ "job_id": "uuid", "job_title": "string", "stage_name": "string", "pending_count": "int" }`       |
 
 ---
 
