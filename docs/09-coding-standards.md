@@ -106,10 +106,12 @@ A lógica de negócio fica nos Services, em `app/Services/`. Um Service por dom�
 
 ```
 app/Services/
+├── AuthService.php
 ├── JobOpeningService.php
 ├── ApplicationService.php
-├── PipelineService.php
-└── AuthService.php
+├── UserService.php
+├── CommentService.php
+└── NotificationService.php
 ```
 
 ### Form Requests

@@ -19,6 +19,17 @@ O que isso significa na prática:
 
 ---
 
+## Vínculo entre Hiring Manager e vaga
+
+A regra "Hiring Manager só vê/move candidatos das suas próprias vagas" depende de saber quais vagas são "suas". Isso é resolvido por uma tabela pivot dedicada — `job_opening_hiring_managers` — que associa vagas a Hiring Managers em relação N:N (uma vaga pode ter vários HMs responsáveis; um HM pode estar em várias vagas).
+
+- `JobOpening::hiringManagers()` — HMs responsáveis por aquela vaga
+- `User::managedJobs()` — vagas sob responsabilidade daquele HM
+
+A atribuição acontece de duas formas: opcionalmente já na criação da vaga (`JobOpeningService::create` aceita `hiring_manager_ids`), ou depois via `assignHiringManager()` / `removeHiringManager()` — útil enquanto a vaga ainda está em `draft` ou quando o HM responsável muda.
+
+---
+
 ## Roles disponíveis
 
 | Role | Slug | Descrição |
@@ -96,9 +107,9 @@ public function moveStage(User $user, Application $application): bool
         return true;
     }
 
-    // Hiring Manager só move candidatos em vagas que lhe pertencem
+    // Hiring Manager só move candidatos em vagas às quais está vinculado
     if ($user->hasRole('hiring-manager')) {
-        return $application->job->assignedManagers->contains($user->id);
+        return $application->job->hiringManagers->contains($user->id);
     }
 
     return false;

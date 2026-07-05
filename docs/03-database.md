@@ -44,6 +44,7 @@ erDiagram
         string provider "nullable — 'linkedin' ou null"
         string provider_id "nullable — ID do OAuth"
         timestamp email_verified_at
+        boolean is_active "default true"
     }
     roles {
         uuid id PK
@@ -103,6 +104,7 @@ erDiagram
 
     users ||--o{ roles : "N:N via user_roles"
     users ||--o{ job_openings : "cria (created_by)"
+    users ||--o{ job_openings : "N:N via job_opening_hiring_managers"
     companies ||--o{ job_openings : "publica"
     job_openings ||--o{ job_stages : "possui"
     job_openings ||--o{ applications : "recebe"
@@ -129,11 +131,12 @@ Usuários do sistema. Engloba todos os tipos — candidatos, recrutadores, admin
 | `id`                        | bigint, PK          | Auto-increment padrão do Laravel            |
 | `name`                      | string              | Nome completo                               |
 | `email`                     | string, unique      | E-mail de acesso                            |
-| `password`                  | string, nullable    | Hash da senha. Nullable para usuários OAuth |
+| `password`                  | string              | Hash da senha. NOT NULL — usuários OAuth recebem senha aleatória (`Str::random(32)`), nunca utilizada |
 | `provider`                  | string, nullable    | Provedor OAuth utilizado (`linkedin`)       |
 | `provider_id`               | string, nullable    | ID do usuário no provedor OAuth             |
 | `email_verified_at`         | timestamp, nullable | Data de verificação do e-mail               |
 | `remember_token`            | string, nullable    | Token de "lembrar sessão"                   |
+| `is_active`                 | boolean, default true | Ativação do usuário. `false` = desativado — preserva integridade referencial (nunca deletado) |
 | `created_at` / `updated_at` | timestamp           | Gerenciados pelo Laravel                    |
 
 ---
@@ -220,6 +223,20 @@ Etapas do pipeline de cada vaga. Cada vaga tem suas próprias etapas, criadas co
 | 5     | `hired`            | Contratado              |
 
 > Os nomes em inglês são usados no banco e no código; as descrições em português são exibidas na interface do usuário.
+
+---
+
+### `job_opening_hiring_managers`
+
+Tabela pivot da relação N:N entre vagas e Hiring Managers responsáveis por avaliá-las. Uma vaga pode ter vários HMs; um HM pode estar em várias vagas.
+
+| Coluna                      | Tipo                        | Descrição |
+| --------------------------- | ---------------------------- | --------- |
+| `job_opening_id`            | uuid, FK → job_openings       | —         |
+| `user_id`                   | bigint, FK → users            | —         |
+| `created_at` / `updated_at` | timestamp                     | —         |
+
+_PK composta: (`job_opening_id`, `user_id`)_
 
 ---
 
