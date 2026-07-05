@@ -57,4 +57,14 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Role::class, 'user_roles');
     }
+
+    /**
+     * O usuário (Hiring Manager) pode ser responsável por várias vagas.
+     *
+     * The user (Hiring Manager) can be responsible for multiple job openings.
+     */
+    public function managedJobs(): BelongsToMany
+    {
+        return $this->belongsToMany(JobOpening::class, 'job_opening_hiring_managers', 'user_id', 'job_opening_id');
+    }
 }

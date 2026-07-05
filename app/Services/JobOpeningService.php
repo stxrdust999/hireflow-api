@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\JobOpeningEnum;
 use App\Models\JobOpening;
+use App\Models\User;
 
 class JobOpeningService
 {
@@ -18,7 +19,8 @@ class JobOpeningService
      *     title: string,
      *     description: string,
      *     location: string,
-     *     type: string
+     *     type: string,
+     *     hiring_manager_ids?: array<int>
      * } $data
      * @return JobOpening
      */
@@ -40,6 +42,9 @@ class JobOpeningService
             ['name' => 'Proposta',           'order' => 4],
             ['name' => 'Contratado',         'order' => 5],
         ]);
+
+        if (!empty($data['hiring_manager_ids']))
+            $jobOpening->hiringManagers()->attach($data['hiring_manager_ids']);
 
         return $jobOpening;
     }
@@ -97,5 +102,32 @@ class JobOpeningService
         $jobOpening->update(['status' => JobOpeningEnum::Closed]);
 
         return $jobOpening;
+    }
+
+    /**
+     * Atribui um Hiring Manager a uma vaga.
+     * Não remove os demais HMs já vinculados — apenas adiciona, sem duplicar.
+     *
+     * @param  JobOpening $jobOpening Vaga resolvida via route model binding
+     * @param  User       $user       Usuário a ser atribuído como Hiring Manager
+     * @return JobOpening
+     */
+    public function assignHiringManager(JobOpening $jobOpening, User $user): JobOpening
+    {
+        $jobOpening->hiringManagers()->syncWithoutDetaching($user->id);
+
+        return $jobOpening;
+    }
+
+    /**
+     * Remove um Hiring Manager de uma vaga.
+     *
+     * @param  JobOpening $jobOpening Vaga resolvida via route model binding
+     * @param  User       $user       Usuário a ser removido da vaga
+     * @return void
+     */
+    public function removeHiringManager(JobOpening $jobOpening, User $user): void
+    {
+        $jobOpening->hiringManagers()->detach($user->id);
     }
 }

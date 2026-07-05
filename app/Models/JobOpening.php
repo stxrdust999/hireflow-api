@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -30,6 +31,16 @@ class JobOpening extends Model
     protected $casts = [
         'status' => JobOpeningEnum::class
     ];
+
+    /**
+     * Uma vaga pode ter vários Hiring Managers responsáveis por avaliar candidatos.
+     *
+     * A job opening can have multiple Hiring Managers responsible for evaluating candidates.
+     */
+    public function hiringManagers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'job_opening_hiring_managers', 'job_opening_id', 'user_id');
+    }
 
     /**
      * Uma vaga de emprego foi criada por um usuário.
