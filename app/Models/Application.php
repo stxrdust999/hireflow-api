@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\ApplicationEnum;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Representa uma candidatura de um candidato a uma vaga de emprego.
@@ -22,7 +22,12 @@ class Application extends Model
         'job_id',
         'current_stage_id',
         'candidate_id',
-        'resume_url'
+        'resume_url',
+        'status'
+    ];
+
+    protected $casts = [
+        'status' => ApplicationEnum::class
     ];
 
     /**
@@ -42,7 +47,7 @@ class Application extends Model
      */
     public function job(): BelongsTo
     {
-        return $this->BelongsTo(JobOpening::class);
+        return $this->belongsTo(JobOpening::class);
     }
 
     /**

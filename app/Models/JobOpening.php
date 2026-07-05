@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\JobOpeningEnum;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Representa uma vaga de emprego aberta por uma empresa.
@@ -17,14 +17,18 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class JobOpening extends Model
 {
     use HasFactory, HasUuids;
-
     protected $fillable = [
         'company_id',
         'created_by',
         'title',
         'description',
         'location',
-        'type'
+        'type',
+        'status'
+    ];
+
+    protected $casts = [
+        'status' => JobOpeningEnum::class
     ];
 
     /**

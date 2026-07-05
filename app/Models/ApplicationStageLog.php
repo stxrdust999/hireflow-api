@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Representa o histórico de movimentação de etapas de uma candidatura.
@@ -22,6 +21,10 @@ class ApplicationStageLog extends Model
         'stage_id',
         'moved_by',
         'moved_at'
+    ];
+
+    protected $casts = [
+        'moved_at' => 'datetime'
     ];
 
     /**
