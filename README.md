@@ -53,7 +53,7 @@ HireFlow is built as a **decoupled system**, mimicking high-scale corporate envi
 1.  **Clone & Install:**
 
     ```bash
-    git clone https://github.com/your-repo/hireflow-api.git
+    git clone https://github.com/stxrdust999/hireflow-api.git
     cd hireflow-api
     composer install
     ```
