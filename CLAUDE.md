@@ -195,9 +195,11 @@ Enums PHP nativos (backed enums com string) em `app/Enums/`. Usados para tipar s
 
 ```php
 // app/Enums/ApplicationEnum.php
-// Pending   = 'pending'   ← estado inicial ao criar a candidatura
-// Withdrawn = 'withdrawn' ← candidato desistiu
-// Hired     = 'hired'     ← candidato chegou na última etapa do pipeline
+// Pending    = 'pending'     ← estado inicial ao criar a candidatura
+// InProgress = 'in_progress' ← candidato em alguma etapa ativa do pipeline
+// Approved   = 'approved'    ← candidato chegou na última etapa do pipeline (contratado)
+// Rejected   = 'rejected'    ← candidatura encerrada pelo recrutador
+// Withdrawn  = 'withdrawn'   ← candidato desistiu
 ```
 
 ---
@@ -218,6 +220,7 @@ Todas as models estão em `app/Models/`. Traits utilizadas:
 // Casts: email_verified_at → datetime, password → hashed, is_active → boolean
 // Relacionamentos:
 //   roles(): BelongsToMany → Role (via user_roles)
+//   managedJobs(): BelongsToMany → JobOpening (via job_opening_hiring_managers) — vagas sob responsabilidade do usuário como Hiring Manager
 ```
 
 ### Role
@@ -246,6 +249,7 @@ Todas as models estão em `app/Models/`. Traits utilizadas:
 //   creator(): BelongsTo → User (FK: created_by)
 //   company(): BelongsTo → Company
 //   stages(): HasMany → JobStage (FK: job_id)
+//   hiringManagers(): BelongsToMany → User (via job_opening_hiring_managers) — HMs responsáveis pela vaga
 ```
 
 ### JobStage
