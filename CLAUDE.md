@@ -58,6 +58,7 @@ Decisão intencional para simular o ambiente profissional real onde front e back
 ```
 hireflow-api/
 ├── app/
+│   ├── Enums/               ← enums PHP para status de domínio
 │   ├── Http/
 │   │   ├── Controllers/Api/
 │   │   │   ├── Auth/
@@ -110,21 +111,21 @@ Todas as tabelas do domínio usam `uuid` como primary key. A exceção é `users
 
 ### Tabelas e seus propósitos
 
-| Tabela                   | Descrição                                                                                                                                                                         |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`                  | Usuários do sistema. Possui `provider` e `provider_id` para OAuth (adicionados via migration separada). PK: `bigint` auto-increment.                                              |
-| `password_reset_tokens`  | Tokens de reset de senha. Padrão Laravel.                                                                                                                                         |
-| `sessions`               | Sessões ativas. Padrão Laravel.                                                                                                                                                   |
-| `personal_access_tokens` | Tokens do Sanctum. Criada ao publicar o provider do Sanctum.                                                                                                                      |
-| `companies`              | Empresas que publicam vagas.                                                                                                                                                      |
-| `roles`                  | Roles do sistema. Populada via Seeder.                                                                                                                                            |
-| `user_roles`             | Tabela pivot entre `users` e `roles` (relação N:N).                                                                                                                               |
-| `job_openings`           | Vagas abertas. **Atenção:** o nome original seria `jobs`, mas o Laravel usa essa tabela internamente para o sistema de filas. Renomeada para `job_openings` para evitar conflito. |
-| `job_stages`             | Etapas do pipeline de cada vaga (ex: Triagem, Entrevista RH).                                                                                                                     |
-| `applications`           | Candidaturas de usuários a vagas.                                                                                                                                                 |
-| `application_stage_logs` | Histórico completo de movimentação de candidatos no pipeline. Serve como auditoria.                                                                                               |
-| `comments`               | Comentários internos de recrutadores/HMs por candidatura. Candidatos não veem.                                                                                                    |
-| `notifications`          | Notificações in-app (ex: candidato avançou de etapa).                                                                                                                             |
+| Tabela                   | Descrição                                                                                                                                                                                             |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`                  | Usuários do sistema. Possui `provider` e `provider_id` para OAuth (adicionados via migration separada). Possui `is_active` booleano (adicionado via migration separada). PK: `bigint` auto-increment. |
+| `password_reset_tokens`  | Tokens de reset de senha. Padrão Laravel.                                                                                                                                                             |
+| `sessions`               | Sessões ativas. Padrão Laravel.                                                                                                                                                                       |
+| `personal_access_tokens` | Tokens do Sanctum. Criada ao publicar o provider do Sanctum.                                                                                                                                          |
+| `companies`              | Empresas que publicam vagas.                                                                                                                                                                          |
+| `roles`                  | Roles do sistema. Populada via Seeder.                                                                                                                                                                |
+| `user_roles`             | Tabela pivot entre `users` e `roles` (relação N:N).                                                                                                                                                   |
+| `job_openings`           | Vagas abertas. **Atenção:** o nome original seria `jobs`, mas o Laravel usa essa tabela internamente para o sistema de filas. Renomeada para `job_openings` para evitar conflito.                     |
+| `job_stages`             | Etapas do pipeline de cada vaga (ex: Triagem, Entrevista RH).                                                                                                                                         |
+| `applications`           | Candidaturas de usuários a vagas.                                                                                                                                                                     |
+| `application_stage_logs` | Histórico completo de movimentação de candidatos no pipeline. Serve como auditoria.                                                                                                                   |
+| `comments`               | Comentários internos de recrutadores/HMs por candidatura. Candidatos não veem.                                                                                                                        |
+| `notifications`          | Notificações in-app (ex: candidato avançou de etapa).                                                                                                                                                 |
 
 ---
 
@@ -177,21 +178,44 @@ Cada movimentação de etapa:
 
 ---
 
+## Enums
+
+Enums PHP nativos (backed enums com string) em `app/Enums/`. Usados para tipar status de domínio e evitar magic strings espalhadas pelo código.
+
+### JobOpeningEnum
+
+```php
+// app/Enums/JobOpeningEnum.php
+// Draft    = 'draft'     ← estado inicial ao criar a vaga
+// Published = 'published' ← vaga visível no portal público
+// Closed   = 'closed'    ← vaga encerrada, sem novas candidaturas
+```
+
+### ApplicationEnum
+
+```php
+// app/Enums/ApplicationEnum.php
+// Pending   = 'pending'   ← estado inicial ao criar a candidatura
+// Withdrawn = 'withdrawn' ← candidato desistiu
+// Hired     = 'hired'     ← candidato chegou na última etapa do pipeline
+```
+
+---
+
 ## Models — estado atual
 
 Todas as models estão em `app/Models/`. Traits utilizadas:
 
 - **`HasUuids`** — nativa do Laravel. Usa UUID como PK automaticamente. Usada em todas as models exceto `User`.
 - **`HasFactory`** — nativa do Laravel. Liga o model à sua Factory para uso em seeders/testes.
-- **`SoftDeletes`** — nativa do Laravel. Adiciona `deleted_at` em vez de deletar fisicamente. A ser adicionada em `User`, `JobOpening` e `Application`.
 - **`Notifiable`** — nativa do Laravel. Necessária no `User` para o sistema de notificações.
 
 ### User
 
 ```php
 // Traits: HasFactory, Notifiable (sem HasUuids — PK é bigint)
-// Fillable: name, email, password
-// Casts: email_verified_at → datetime, password → hashed
+// Fillable: name, email, password, provider, provider_id, is_active
+// Casts: email_verified_at → datetime, password → hashed, is_active → boolean
 // Relacionamentos:
 //   roles(): BelongsToMany → Role (via user_roles)
 ```
@@ -216,7 +240,8 @@ Todas as models estão em `app/Models/`. Traits utilizadas:
 
 ```php
 // Traits: HasFactory, HasUuids
-// Fillable: company_id, created_by, title, description, location, type
+// Fillable: company_id, created_by, title, description, location, type, status
+// Casts: status → JobOpeningEnum
 // Relacionamentos:
 //   creator(): BelongsTo → User (FK: created_by)
 //   company(): BelongsTo → Company
@@ -236,7 +261,8 @@ Todas as models estão em `app/Models/`. Traits utilizadas:
 
 ```php
 // Traits: HasFactory, HasUuids
-// Fillable: job_id, current_stage_id, candidate_id, resume_url
+// Fillable: job_id, current_stage_id, candidate_id, resume_url, status
+// Casts: status → ApplicationEnum
 // Relacionamentos:
 //   candidate(): BelongsTo → User
 //   job(): BelongsTo → JobOpening
@@ -312,6 +338,78 @@ Configs publicados via `vendor:publish`:
 
 ---
 
+## Arquitetura de Services
+
+Controllers são orquestradores: recebem a request, delegam pro Service, devolvem a resposta HTTP.
+Services carregam as regras de negócio: validações de domínio, operações compostas, efeitos colaterais.
+
+**Regra:** se uma operação toca mais de um Model ou dispara efeitos colaterais (log, notificação, fila), ela vai pro Service — nunca direto no Controller.
+
+### Assinatura dos métodos (referência rápida)
+
+```
+AuthService
++ register(data: array): User
++ login(data: array): string
++ logout(user: User): void
++ handleOAuthCallback(provider: string, oAuthUser: OAuthUser): string
+
+JobOpeningService
++ create(data: array): JobOpening
++ update(data: array, jobOpening: JobOpening): JobOpening
++ publish(jobOpening: JobOpening): JobOpening
++ close(jobOpening: JobOpening): JobOpening
+
+ApplicationService
++ apply(data: array): Application
++ move(application: Application, stage: JobStage, author: User): Application
++ withdraw(application: Application): void
+
+CommentService
++ create(data: array): Comment
++ delete(comment: Comment): void
+
+NotificationService
++ markAsRead(notification: Notification): Notification
++ markAllAsRead(user: User): void
+
+UserService
++ list(): Collection
++ assignRole(user: User, role: Role): User
++ deactivate(user: User): void
+```
+
+### Decisões de implementação dos Services
+
+**AuthService**
+
+- OAuth cria usuário com `Str::random(32)` como password — nunca utilizado, mas a coluna é `NOT NULL`
+- OAuth atribui role `candidate` automaticamente — fluxo OAuth é exclusivo do portal público
+- Token Sanctum criado dentro do Service (não no Controller) para manter o fluxo encapsulado
+- `Auth::user()` retorna `Authenticatable|null` — usar `User::findOrFail(Auth::id())` para tipagem correta
+
+**JobOpeningService**
+
+- Stages padrão são hardcoded no Service (não buscadas do banco) — são conhecidas pelo domínio
+- `publish` valida `status === draft` antes de mudar; `close` valida `status === published`
+- Status comparado e atualizado sempre via `JobOpeningEnum` — nunca string crua
+
+**ApplicationService**
+
+- `apply` busca a primeira stage da vaga via `orderBy('order')->firstOrFail()` — nunca assume qual é
+- `move` detecta automaticamente se é a última stage (`!JobStage::where('order', '>', $stage->order)->exists()`) e atualiza status para `Hired`
+- `withdraw` não deleta o registro — apenas marca `status = withdrawn` para preservar auditoria em `application_stage_logs`
+
+**UserService**
+
+- `deactivate` não deleta o usuário — usa `is_active = false` para preservar integridade referencial com vagas, candidaturas e logs existentes. Soft delete foi considerado mas `is_active` é mais explícito para o domínio.
+- `assignRole` usa `syncWithoutDetaching` — evita duplicatas na pivot sem remover roles existentes
+- `list` filtra `is_active = true` por padrão — usuários desativados não aparecem na listagem
+
+**Atenção futura (Controllers):** o `AuthService@login` não bloqueia usuário inativo — validar `is_active` no Controller ou Middleware ao implementar.
+
+---
+
 ## Ordem de desenvolvimento
 
 ```
@@ -325,7 +423,7 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 3. ~~Migrations~~ ✓
 4. ~~Models + Relationships~~ ✓
 5. ~~Factories & Seeders~~ ✓
-6. Services
+6. ~~Services~~ ✓
 7. Controllers + Routes + Requests
 8. Policies
 9. Swagger
@@ -337,10 +435,10 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 - Infra: **concluída**
 - Docker: MySQL 8.0 + Redis 7-alpine rodando
 - Herd: servindo `hireflow-api.test`
-- Migrations: todas rodadas com `migrate:fresh`
-- Models: todas criadas com traits e relacionamentos corretos
-- Repositório remoto: atualizado
-- Factories: **8 factories criadas** (User, Role, Company, JobOpening, JobStage, Application, ApplicationStageLog, Comment, Notification)
+- Migrations: todas rodadas — inclui migrations adicionais para `provider`/`provider_id` e `is_active` em `users`
+- Models: todas atualizadas com fillable, casts e enums corretos
+- Enums: `JobOpeningEnum`, `ApplicationEnum` criados em `app/Enums/`
+- Factories: **8 factories criadas**
 - Seeders: **9 seeders criados** — orquestrados pelo `DatabaseSeeder`
     - `RoleSeeder`: 4 roles (admin, recruiter, hiring-manager, candidate)
     - `UserSeeder`: admin via `.env` + 5 recruiters + 5 HMs + 20 candidates (31 total)
@@ -350,20 +448,9 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
     - `ApplicationSeeder`: 40 candidaturas com candidate, vaga e etapa selecionados aleatoriamente
     - `ApplicationStageLogSeeder`: 60 registros de movimentação (`moved_by` = recruiter ou HM)
     - `CommentSeeder`: 50 comentários (autores: recruiters, HMs e candidates)
-    - `NotificationSeeder`: 80 notificações para todos os usuários; lógica de payload inline no Seeder (não usa `NotificationFactory`)
+    - `NotificationSeeder`: 80 notificações para todos os usuários
 - Admin credentials: configuráveis via `config/services.php` ← `.env` (`ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`)
-- `/docs/`: 12 arquivos de documentação (introdução à glossary)
+- `/docs/`: 12 arquivos de documentação
+- Services: **6 services concluídos** com PHPDoc completo
 - Repositório remoto: atualizado
-- **Próximo passo: Services**
-
-## Arquitetura de Services
-
-Controllers são orquestradores: recebem a request, delegam pro Service, devolvem a resposta HTTP.
-Services carregam as regras de negócio: validações de domínio, operações compostas, efeitos colaterais.
-
-**Regra:** se uma operação toca mais de um Model ou dispara efeitos colaterais (log, notificação, fila), ela vai pro Service — nunca direto no Controller.
-
-Exemplos:
-
-- `ApplicationService@move` → atualiza `current_stage_id` + cria `ApplicationStageLog` + dispara `Notification`
-- `JobOpeningService@publish` → muda status + valida se tem stages criadas
+- **Próximo passo: Controllers + Routes + Requests**
