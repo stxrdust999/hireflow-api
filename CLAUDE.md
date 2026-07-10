@@ -451,6 +451,78 @@ UserService
 
 ---
 
+## Arquitetura de Controllers, Requests & Resources
+
+Primeira leva implementada nessa sessão — módulo de autenticação email/senha completo (`register`, `login`, `logout`, `me`). Decisões e motivos documentados abaixo pra manter consistência quando os próximos domínios (Jobs, Applications, Comments, Admin) forem implementados.
+
+### Estrutura de pastas
+
+```
+app/Http/
+├── Controllers/Api/Auth/AuthController.php
+├── Requests/Auth/
+│   ├── RegisterRequest.php
+│   └── LoginRequest.php
+└── Resources/
+    ├── UserResource.php          ← flat, reaproveitado por qualquer endpoint que devolva User
+    └── Auth/LoginResource.php    ← agrupado, específico do fluxo de login
+```
+
+**Critério pra agrupar Controllers/Requests por domínio (`Auth/`) em vez de flat:** usado quando o domínio tende a crescer pra múltiplos Controllers. Auth vai ganhar `SocialAuthController` (OAuth) e possivelmente `PasswordResetController` (tabela `password_reset_tokens` já existe no banco) — por isso a pasta compensa desde já. Domínios com Controller único pra sempre podem ficar flat, sem necessidade de subpasta.
+
+**Critério pra criar um Resource novo vs reaproveitar existente:** Resource é sobre a **forma da saída**, não sobre o endpoint. `UserResource` cobre qualquer resposta que seja "um User" (`register`, `me`, e futuramente listagem/edição de usuário no admin) — por isso fica flat em `Resources/`, fora do namespace `Auth/`, já que não é exclusivo desse domínio. `LoginResource` foi criado porque o login devolve uma forma composta (`token` + `user`) que nenhum Resource existente cobria. Regra geral: **não** criar 1 Resource por endpoint mecanicamente — só quando a forma de saída é genuinamente nova.
+
+### Decisões — AuthController
+
+- **`register`** → `201 Created`, reaproveita `UserResource`. Usa `$request->validated()` (nunca `->all()`, evita mass assignment de campos não previstos nas `rules()`).
+- **`login`** → `200 OK` (login não cria recurso REST-endereçável, é uma ação). Monta `LoginResource(['token' => ..., 'user' => ...])`. O `User` é buscado via `User::findOrFail(Auth::id())` — tipagem forte, já que `Auth::user()`/`$request->user()` retornam `Authenticatable|null`.
+- **`login` bloqueia usuário inativo** (`is_active === false`) lançando `\Exception` — resolve a pendência antiga já documentada mais abaixo em Services.
+- **`logout`** → `204 No Content`, sem Resource (sem corpo). **Importante:** usa `$request->user()` direto, **não** `User::findOrFail()`. Motivo: `currentAccessToken()` (usado dentro de `AuthService::logout`) só funciona na instância que o Sanctum resolveu durante a autenticação da requisição atual — refazer o fetch cria uma instância nova sem esse vínculo em memória, quebrando com `Attempt to read property "id" on null`.
+- **`me`** → `200 OK`, reaproveita `UserResource`, sem Request dedicada (rota sem input no corpo — token já validado pelo middleware `auth:sanctum` antes do Controller rodar).
+
+### Decisões — RegisterRequest / LoginRequest
+
+- `RegisterRequest::authorize()` → `true` (rota pública, qualquer um pode se cadastrar).
+- ⚠️ **GAP DE SEGURANÇA CONHECIDO (pendente):** `RegisterRequest::rules()` valida `role` com `exists:roles,slug`, que aceita **qualquer** slug existente — incluindo `admin` e `recruiter`. Como `register` é rota pública, hoje qualquer um pode se auto-cadastrar como admin via Postman (escalação de privilégio). Correção mínima até o fluxo de convite existir: trocar a rule para `in:candidate`. Registro de recrutador/HM/admin deve ser feito por convite de um admin (fluxo 🚧 não implementado). Ver também nota em `docs/04-auth.md`.
+- `LoginRequest::authorize()` → `!Auth::guard('sanctum')->check()`. Bloqueia login se já existir um token Sanctum válido **nessa mesma requisição** (mesmo dispositivo já autenticado tentando logar de novo). Guard precisa ser explicitado (`sanctum`) porque o guard padrão da aplicação é `web` (sessão) — API é stateless, `Auth::check()` sem guard nunca reflete autenticação por token.
+- `LoginRequest::rules()` propositalmente **sem** `unique`/`exists` no email — evita enumeration attack (não revelar, via erro de validação, se um email existe no sistema).
+
+### OAuth (LinkedIn, e futuramente Google) — decisão de design pra quando implementarmos
+
+Não criar um Controller por provedor (`LinkedInController`, `GoogleController`, etc). `AuthService::handleOAuthCallback(string $provider, ...)` já trata o provedor como **parâmetro**, não como tipo — o fluxo inteiro (redirect, callback, buscar/criar usuário) é idêntico entre provedores, só muda a string. Plano: um único `SocialAuthController` com rotas `auth/{provider}/redirect` e `auth/{provider}/callback`, validando `$provider` contra uma whitelist (`['linkedin', 'google']`).
+
+### Fix de infraestrutura — `bootstrap/app.php`
+
+Requisição não-autenticada numa rota `auth:sanctum` sem header `Accept: application/json` disparava `RouteNotFoundException` (`500`), porque o middleware padrão do Laravel tentava redirecionar pra uma rota `login` web que não existe (API é 100% stateless, sem views Blade). Corrigido forçando `redirectGuestsTo` a nunca redirecionar:
+
+```php
+->withMiddleware(function (Middleware $middleware): void {
+    $middleware->redirectGuestsTo(fn () => null);
+})
+```
+
+Agora requisição sem token retorna `401` limpo (`{"message": "Unauthenticated."}`), aproveitando o `shouldRenderJsonWhen` que já força resposta JSON pra tudo em `api/*`.
+
+### Rotas registradas (`routes/api.php`)
+
+```php
+Route::prefix('v1')->group(function () {
+    Route::prefix('auth')->group(function () {
+        Route::post('register', [AuthController::class, 'register']);
+        Route::post('login', [AuthController::class, 'login']);
+
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::delete('logout', [AuthController::class, 'logout']);
+            Route::get('me', [AuthController::class, 'me']);
+        });
+    });
+});
+```
+
+`/api` é adicionado automaticamente pelo Laravel (configurado via `install:api` no `bootstrap/app.php`); só precisa declarar `v1` a partir daqui.
+
+---
+
 ## Ordem de desenvolvimento
 
 ```
@@ -465,7 +537,7 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 4. ~~Models + Relationships~~ ✓
 5. ~~Factories & Seeders~~ ✓
 6. ~~Services~~ ✓
-7. Controllers + Routes + Requests
+7. Controllers + Routes + Requests — 🔄 em andamento (Auth ✓ completo; Jobs/Applications/Comments/Admin pendentes)
 8. Policies
 9. Swagger
 
@@ -493,5 +565,9 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 - Admin credentials: configuráveis via `config/services.php` ← `.env` (`ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`)
 - `/docs/`: 12 arquivos de documentação
 - Services: **6 services concluídos** com PHPDoc completo
+- `php artisan install:api` executado — `routes/api.php` criado, Sanctum religado no `bootstrap/app.php`
+- **Módulo Auth completo:** `AuthController` (`register`, `login`, `logout`, `me`), `RegisterRequest`, `LoginRequest`, `UserResource`, `LoginResource` — todos com PHPDoc, testados via Postman ponta a ponta
+- Fix aplicado em `bootstrap/app.php`: `redirectGuestsTo(fn () => null)` — evita `500` em rota protegida sem token (ver detalhes em [Arquitetura de Controllers, Requests & Resources](#arquitetura-de-controllers-requests--resources))
+- Constraint do `laravel/sanctum` no `composer.json` foi alterado de `^4.3` pra `^4.0` pelo próprio `install:api` (efeito colateral do comando, não escolha manual) — revertido pra `^4.3` manualmente
 - Repositório remoto: atualizado
-- **Próximo passo: Controllers + Routes + Requests**
+- **Próximo passo: Controllers + Routes + Requests dos demais domínios (Jobs, Applications, Comments, Admin) + middleware `CheckRole`**
