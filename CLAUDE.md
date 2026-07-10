@@ -1,3 +1,40 @@
+# Stardust — Contexto de Desenvolvimento & Preferências
+
+> **Uso:** Cole este arquivo em nova sessão com Claude ou Claude Code para manter continuidade. Atualize ao final de cada sessão.
+
+---
+
+## Sobre o usuário (contexto geral)
+
+- **Role:** Frontend intern expandindo para fullstack (Next.js → Laravel/PHP)
+- **Stack principal:** Next.js, React, TypeScript, Tailwind, shadcn/ui, Laravel, MySQL, Docker
+- **Empresa:** ~10 pessoas em Sorocaba, Brasil
+- **Status:** Aprendendo Laravel/PHP **do zero** — HireFlow é projeto de portfólio para consolidar fullstack
+- **Formação:** FATEC Sorocaba, CS
+
+---
+
+## Como o usuário prefere ser ensinado
+
+### Regra geral
+
+- **Idioma:** português brasileiro (pt-BR) — sem "tu vais", "vós", ou outras variações de português europeu. Use "você", "vai", "está", etc. Padrão brasileiro mesmo.
+- **Sem enrolação.** Breve mas objetivo — não economize na informação, mesmo se ficar extenso
+- **Sempre cite fontes.** Não tire informação "do nada". Mostre de onde veio
+- **Entenda a intenção.** Não apenas corrija código literal — descubra o que você quer fazer e sugira baseado nisso
+
+### Explicações de código (padrão de resposta)
+
+1. **Explicação didática** — use exemplos do mundo real (caixinhas para ponteiros, etc)
+2. **Explicação técnica** — depois, o jargão/termos específicos
+3. **Glossário** — abaixo da explicação técnica, defina os termos usados (type cast, heap, etc)
+
+### Geral
+
+- Breve ≠ superficial. Seja conciso mas completo
+
+---
+
 # HireFlow — Documento de Contexto do Projeto
 
 > Este arquivo é o contexto vivo do projeto HireFlow. Deve ser colado no início de toda nova conversa com a IA para garantir continuidade. Atualize-o ao final de cada sessão de desenvolvimento.
