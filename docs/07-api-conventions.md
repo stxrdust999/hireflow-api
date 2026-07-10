@@ -144,14 +144,33 @@ GET /api/v1/job-openings?sort=created_at&direction=desc
 
 ### Autenticação
 
-| Método | Endpoint                  | Descrição                    | Auth    |
-| ------ | ------------------------- | ---------------------------- | ------- |
-| POST   | `/auth/register`          | Cadastro de candidato        | Público |
-| POST   | `/auth/login`             | Login com email e senha      | Público |
-| DELETE | `/auth/logout`            | Logout (invalida token)      | ✅      |
-| GET    | `/auth/me`                | Dados do usuário autenticado | ✅      |
-| GET    | `/auth/linkedin/redirect` | Inicia OAuth LinkedIn        | Público |
-| GET    | `/auth/linkedin/callback` | Callback OAuth LinkedIn      | Público |
+| Método | Endpoint                  | Descrição                    | Auth    | Status          |
+| ------ | ------------------------- | ---------------------------- | ------- | --------------- |
+| POST   | `/auth/register`          | Cadastro de candidato        | Público | ✅ Implementado |
+| POST   | `/auth/login`             | Login com email e senha      | Público | ✅ Implementado |
+| DELETE | `/auth/logout`            | Logout (invalida token)      | ✅      | ✅ Implementado |
+| GET    | `/auth/me`                | Dados do usuário autenticado | ✅      | ✅ Implementado |
+| GET    | `/auth/linkedin/redirect` | Inicia OAuth LinkedIn        | Público | 🚧 Pendente     |
+| GET    | `/auth/linkedin/callback` | Callback OAuth LinkedIn      | Público | 🚧 Pendente     |
+
+**Formato de resposta do login** — token e usuário juntos, dentro do envelope `data`:
+
+```json
+{
+    "data": {
+        "token": "1|abc123...",
+        "user": {
+            "id": 1,
+            "name": "Teste da Silva",
+            "email": "teste@hireflow.com",
+            "roles": ["candidate"],
+            "is_active": true
+        }
+    }
+}
+```
+
+**Códigos por endpoint:** `register` → `201`; `login` e `me` → `200`; `logout` → `204` (sem corpo). Requisição sem token em rota protegida → `401 {"message": "Unauthenticated."}`.
 
 ### Vagas
 

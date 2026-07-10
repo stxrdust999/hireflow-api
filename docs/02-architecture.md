@@ -116,7 +116,8 @@ hireflow-api/
 │   │   │   ├── Applications/
 │   │   │   └── Admin/
 │   │   ├── Middleware/         ← middlewares customizados (ex: CheckRole)
-│   │   └── Requests/           ← validação de entrada (Form Requests)
+│   │   ├── Requests/           ← validação de entrada (Form Requests), agrupadas por domínio
+│   │   └── Resources/          ← contratos de saída (API Resources) — formato exato do JSON de resposta
 │   ├── Models/                 ← Eloquent models
 │   ├── Policies/               ← regras de autorização por recurso
 │   ├── Services/               ← lógica de negócio desacoplada dos controllers

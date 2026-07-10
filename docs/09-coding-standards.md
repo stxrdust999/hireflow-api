@@ -116,7 +116,11 @@ app/Services/
 
 ### Form Requests
 
-Toda validação de entrada usa Form Requests, em `app/Http/Requests/`. Nunca validar dentro do controller.
+Toda validação de entrada usa Form Requests, em `app/Http/Requests/`, agrupadas por domínio (ex: `Requests/Auth/LoginRequest.php`). Nunca validar dentro do controller.
+
+> **Nomenclatura:** o padrão geral é `ação + recurso + sufixo` (`StoreJobOpeningRequest`). Nas Requests de Auth o recurso fica implícito no namespace (`Auth\RegisterRequest`, `Auth\LoginRequest`) — evita redundância tipo `Auth\RegisterAuthRequest`.
+
+No controller, sempre usar `$request->validated()` — nunca `$request->all()`. O `validated()` retorna apenas os campos que passaram pelas `rules()`, protegendo contra mass assignment de campos não previstos.
 
 ```php
 class StoreJobOpeningRequest extends FormRequest
@@ -138,6 +142,33 @@ class StoreJobOpeningRequest extends FormRequest
     }
 }
 ```
+
+### API Resources
+
+Toda saída da API passa por um Resource (`app/Http/Resources/`) — nunca retornar Models crus serializados. O Resource é o contrato de saída: define exatamente quais campos saem e em que formato, independente do que existir no Model/banco. É o que garante que o Swagger (e por consequência os types gerados pelo Orval no front) reflete a resposta real.
+
+```php
+class UserResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id'        => $this->id,
+            'name'      => $this->name,
+            'email'     => $this->email,
+            'roles'     => $this->roles->pluck('slug'),
+            'is_active' => $this->is_active,
+            // password, provider e provider_id NUNCA saem daqui
+        ];
+    }
+}
+```
+
+**Organização e reuso:**
+
+- Resource representa uma **forma de saída**, não um endpoint. `UserResource` atende `register`, `me` e futuros endpoints de admin que devolvam um User — por isso fica flat em `Resources/`, sem namespace de domínio.
+- Resource novo só quando a forma é genuinamente nova. `LoginResource` existe porque o login devolve um composto (`token` + `user`) que nenhum Resource cobria — e internamente aninha o `UserResource` para a parte do usuário, sem duplicar campos.
+- O `JsonResource` já embrulha a resposta no envelope `{ "data": {...} }` automaticamente — não montar o envelope na mão.
 
 ### Swagger — Anotações
 
@@ -215,7 +246,7 @@ Route::prefix('v1')->group(function () {
 });
 ```
 
-_Ainda não foram iniciadas. Provavelmente vou separar rotas por arquivos, um por contexto. Por mais que seja desnecessário, funciona melhor na minha cabeça._
+✅ _Iniciadas — bloco de Auth registrado em `routes/api.php` seguindo exatamente essa estrutura (prefixo `v1` → prefixo `auth` → separação pública/protegida via `auth:sanctum`). O `/api` inicial é adicionado automaticamente pelo Laravel para tudo em `routes/api.php`. A possível separação em um arquivo por contexto fica para quando houver mais domínios registrados._
 
 ---
 

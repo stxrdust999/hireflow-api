@@ -126,13 +126,15 @@ http://hireflow-api.test
 
 Se não aparecer, abra o Herd, vá em **Sites** e adicione manualmente apontando para `www/hireflow-api/public`.
 
-Teste a API:
+Teste a API (o endpoint `/auth/me` já existe e responde mesmo sem token):
 
 ```bash
-curl http://hireflow-api.test/api/v1/job-openings
+curl http://hireflow-api.test/api/v1/auth/me
 ```
 
-Resposta esperada: `{"data": [], "meta": {...}}` (lista vazia ou com dados do seed).
+Resposta esperada: `{"message": "Unauthenticated."}` com status `401` — confirma que a API está de pé e o middleware `auth:sanctum` está funcionando.
+
+> O endpoint `/job-openings` ainda não foi implementado — por enquanto, apenas o módulo de autenticação (`/auth/*`) está disponível. Veja o status de cada endpoint em [Convenções da API](./07-api-conventions.md#endpoints-previstos).
 
 ---
 
