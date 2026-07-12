@@ -67,4 +67,22 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(JobOpening::class, 'job_opening_hiring_managers', 'user_id', 'job_opening_id');
     }
+
+    /**
+     * Verifica se o usuário possui pelo menos uma das roles informadas.
+     * Aceita uma única slug (string) ou várias (array) — a lógica é OR.
+     *
+     * Checks whether the user has at least one of the given roles.
+     *
+     * @param  string|array<int, string> $roles Slug(s) de role a verificar
+     * @return bool
+     */
+    public function hasRole(string|array $roles): bool
+    {
+        $roles = (array) $roles;
+
+        $slugs = $this->roles->pluck('slug');
+
+        return $slugs->intersect($roles)->isNotEmpty();
+    }
 }
