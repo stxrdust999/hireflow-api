@@ -125,7 +125,7 @@ Route::middleware(['auth:sanctum', 'role:recruiter,admin'])->group(function () {
 });
 ```
 
-🚧 _Middleware `CheckRole` ainda não implementado._
+✅ _Middleware `CheckRole` implementado — registrado com o alias `role` no `bootstrap/app.php`. Detalhes em [Roles & Permissões](./05-roles-permissions.md#nível-de-rota--middleware-checkrole)._
 
 ---
 

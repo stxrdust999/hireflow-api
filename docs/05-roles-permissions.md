@@ -67,9 +67,11 @@ A atribuição acontece de duas formas: opcionalmente já na criação da vaga (
 
 ### Nível de rota — Middleware `CheckRole`
 
-🚧 *Implementação pendente.*
+✅ *Implementado — `app/Http/Middleware/CheckRole.php`, alias `role` registrado no `bootstrap/app.php`.*
 
 O middleware `CheckRole` é a primeira linha de defesa. Ele impede que um usuário sem a role adequada sequer chegue ao controller.
+
+As roles exigidas são passadas como parâmetros variádicos na rota (`role:admin,recruiter` → `handle($request, $next, 'admin', 'recruiter')`). Internamente, delega a verificação ao `User::hasRole()`. Deve ser sempre encadeado **após** `auth:sanctum` — depende do usuário já estar autenticado. Se `$request->user()` for nulo ou não tiver nenhuma das roles, aborta com `403`.
 
 ```php
 // Exemplo de uso nas rotas
@@ -120,13 +122,14 @@ public function moveStage(User $user, Application $application): bool
 
 Para facilitar as verificações nas Policies e em qualquer outro ponto do código, o model `User` expõe um método `hasRole()`:
 
-🚧 *Implementação pendente.*
+✅ *Implementado — `app/Models/User.php`.*
 
 ```php
-// Uso esperado
-$user->hasRole('admin');           // true/false
+$user->hasRole('admin');                // true/false
 $user->hasRole(['admin', 'recruiter']); // true se tiver qualquer uma das duas
 ```
+
+Implementação: normaliza o parâmetro para array (`(array) $roles`), extrai os slugs das roles do usuário via `pluck('slug')` e retorna se a interseção entre os dois conjuntos não é vazia (lógica OR).
 
 ---
 
@@ -164,7 +167,7 @@ As quatro roles são criadas automaticamente via Seeder na instalação do siste
 | Situação | HTTP Status | Mensagem |
 |---|---|---|
 | Usuário não autenticado | `401 Unauthorized` | `Unauthenticated.` |
-| Usuário autenticado sem a role necessária | `403 Forbidden` | `This action is unauthorized.` |
+| Usuário autenticado sem a role necessária | `403 Forbidden` | `Usuário não tem a função necessária para acessar esse recurso.` (mensagem do `CheckRole`) |
 | Usuário com role correta mas sem acesso ao recurso específico | `403 Forbidden` | `This action is unauthorized.` |
 
 Para entender como essas roles se aplicam ao fluxo de candidaturas, veja [Pipeline de Vagas](./06-pipeline.md).
