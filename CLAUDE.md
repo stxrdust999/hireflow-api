@@ -483,7 +483,7 @@ app/Http/
 ### Decisões — RegisterRequest / LoginRequest
 
 - `RegisterRequest::authorize()` → `true` (rota pública, qualquer um pode se cadastrar).
-- ⚠️ **GAP DE SEGURANÇA CONHECIDO (pendente):** `RegisterRequest::rules()` valida `role` com `exists:roles,slug`, que aceita **qualquer** slug existente — incluindo `admin` e `recruiter`. Como `register` é rota pública, hoje qualquer um pode se auto-cadastrar como admin via Postman (escalação de privilégio). Correção mínima até o fluxo de convite existir: trocar a rule para `in:candidate`. Registro de recrutador/HM/admin deve ser feito por convite de um admin (fluxo 🚧 não implementado). Ver também nota em `docs/04-auth.md`.
+- ✅ **GAP DE SEGURANÇA RESOLVIDO:** `RegisterRequest::rules()` teve `role` alterado de `exists:roles,slug` para `in:candidate` — registro público agora só cria candidatos, fechando a auto-escalação a admin. Registro de recrutador/HM/admin ficará no fluxo de convite por admin (🚧 não implementado). Ver seção "Autorização" abaixo e `docs/04-auth.md`.
 - `LoginRequest::authorize()` → `!Auth::guard('sanctum')->check()`. Bloqueia login se já existir um token Sanctum válido **nessa mesma requisição** (mesmo dispositivo já autenticado tentando logar de novo). Guard precisa ser explicitado (`sanctum`) porque o guard padrão da aplicação é `web` (sessão) — API é stateless, `Auth::check()` sem guard nunca reflete autenticação por token.
 - `LoginRequest::rules()` propositalmente **sem** `unique`/`exists` no email — evita enumeration attack (não revelar, via erro de validação, se um email existe no sistema).
 
@@ -520,6 +520,30 @@ Route::prefix('v1')->group(function () {
 ```
 
 `/api` é adicionado automaticamente pelo Laravel (configurado via `install:api` no `bootstrap/app.php`); só precisa declarar `v1` a partir daqui.
+
+---
+
+## Autorização — `hasRole()` & middleware `CheckRole`
+
+Camada de autorização por role, construída antes do primeiro domínio protegido (`JobOpening`). Substitui os 🚧 antigos em `docs/04-auth.md` e `docs/05-roles-permissions.md`.
+
+### `User::hasRole(string|array $roles): bool`
+
+Método no model `User`. Aceita uma slug ou várias (lógica **OR** — true se tiver pelo menos uma). Implementação: `(array) $roles` normaliza o parâmetro, `$this->roles->pluck('slug')` pega as slugs do usuário, e retorna `->intersect($roles)->isNotEmpty()`. Usado tanto pelo `CheckRole` quanto (futuramente) pelas Policies.
+
+**Atenção N+1:** `$this->roles` dispara lazy loading. Ok num request único (`CheckRole`), mas em listagens de vários usuários usar eager loading (`User::with('roles')`).
+
+### Middleware `CheckRole` (`app/Http/Middleware/CheckRole.php`)
+
+- Registrado com o alias `role` no `bootstrap/app.php` via `$middleware->alias(['role' => CheckRole::class])`.
+- Uso na rota: `role:admin,recruiter`. O que vem depois dos `:` são parâmetros **variádicos** (`string ...$roles`) — cada vírgula vira um argumento no `handle()`.
+- Lógica: pega `$request->user()`, e se `!$user || !$user->hasRole($roles)` → `abort(403, ...)`. Senão `$next($request)`.
+- **Sempre encadear após `auth:sanctum`** (`['auth:sanctum', 'role:...']`) — depende do usuário já autenticado. A blindagem `!$user` cobre o caso de uso indevido sem o guard antes.
+- `403` (não `401`): `401` = "não sei quem é" (trabalho do `auth:sanctum`); `403` = "sei quem é, mas não pode" (trabalho do `CheckRole`).
+
+### Fix de segurança aplicado junto
+
+`RegisterRequest::rules()` teve `role` alterado de `exists:roles,slug` para `in:candidate` — fecha o gap de auto-cadastro como admin (registro público agora só cria candidatos). Gap documentado anteriormente aqui e em `docs/04-auth.md` está **resolvido**.
 
 ---
 
@@ -569,5 +593,6 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 - **Módulo Auth completo:** `AuthController` (`register`, `login`, `logout`, `me`), `RegisterRequest`, `LoginRequest`, `UserResource`, `LoginResource` — todos com PHPDoc, testados via Postman ponta a ponta
 - Fix aplicado em `bootstrap/app.php`: `redirectGuestsTo(fn () => null)` — evita `500` em rota protegida sem token (ver detalhes em [Arquitetura de Controllers, Requests & Resources](#arquitetura-de-controllers-requests--resources))
 - Constraint do `laravel/sanctum` no `composer.json` foi alterado de `^4.3` pra `^4.0` pelo próprio `install:api` (efeito colateral do comando, não escolha manual) — revertido pra `^4.3` manualmente
+- **Camada de autorização completa:** `User::hasRole()`, middleware `CheckRole` (alias `role` no `bootstrap/app.php`), fix de segurança no `RegisterRequest` (`in:candidate`) — todos com PHPDoc, testados via Postman (401/403/200). Ver seção "Autorização — `hasRole()` & middleware `CheckRole`"
 - Repositório remoto: atualizado
-- **Próximo passo: Controllers + Routes + Requests dos demais domínios (Jobs, Applications, Comments, Admin) + middleware `CheckRole`**
+- **Próximo passo: `JobOpeningController` (primeiro domínio protegido por `role:`) + Requests + Resources + rotas. Depois: Applications, Comments, Admin. Pendências rápidas: Policies (nível de recurso), fluxo de convite de usuário interno**
