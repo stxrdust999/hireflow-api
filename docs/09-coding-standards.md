@@ -90,15 +90,23 @@ class JobOpeningController extends Controller
 
     public function store(StoreJobOpeningRequest $request): JsonResponse
     {
-        $jobOpening = $this->service->create(
-            $request->validated(),
-            $request->user()
-        );
+        $data = $request->validated();
+        $data['created_by'] = $request->user()->id;
 
-        return response()->json(['data' => $jobOpening], 201);
+        $jobOpening = $this->service->create($data);
+
+        return (new JobOpeningResource($jobOpening))->response()->setStatusCode(201);
     }
 }
 ```
+
+**Padrões adotados nos Controllers (a partir do módulo JobOpening):**
+
+- **Route model binding:** métodos que recebem um recurso por `{id}` type-hintam o Model direto (`show(JobOpening $jobOpening)`), não a string do id. O Laravel resolve e devolve 404 se não existir. Exige que o nome do parâmetro na rota (`{jobOpening}`) seja igual ao do método.
+- **Autoria via token:** campos como `created_by` são preenchidos a partir de `$request->user()`, nunca do corpo da requisição — e por isso ficam fora das `rules()` da Request.
+- **Reatribuição em vez de nome redundante:** quando o Service muta e devolve o mesmo Model, reatribui a variável do parâmetro (`$jobOpening = $this->service->publish($jobOpening)`), não cria `$publishedJobOpening`.
+- **Eager loading:** métodos que devolvem recursos com relações usam `with()`/`load()` para evitar N+1, já que o Resource sempre acessa essas relações.
+- **Saída sempre via Resource**, com status explícito (`->setStatusCode(...)`); nunca retornar o Model cru.
 
 ### Services
 

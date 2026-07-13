@@ -174,15 +174,27 @@ GET /api/v1/job-openings?sort=created_at&direction=desc
 
 ### Vagas
 
-| Método | Endpoint                     | Descrição              | Auth             |
-| ------ | ---------------------------- | ---------------------- | ---------------- |
-| GET    | `/job-openings`              | Lista vagas publicadas | Público          |
-| GET    | `/job-openings/{id}`         | Detalhe de uma vaga    | Público          |
-| POST   | `/job-openings`              | Cria uma vaga          | Admin, Recruiter |
-| PUT    | `/job-openings/{id}`         | Edita uma vaga         | Admin, Recruiter |
-| PATCH  | `/job-openings/{id}/publish` | Publica uma vaga       | Admin, Recruiter |
-| PATCH  | `/job-openings/{id}/close`   | Fecha uma vaga         | Admin, Recruiter |
-| DELETE | `/job-openings/{id}`         | Remove uma vaga        | Admin            |
+✅ _Módulo implementado — `JobOpeningController`, testado ponta a ponta via Postman._
+
+| Método | Endpoint                     | Descrição              | Auth             | Status          |
+| ------ | ---------------------------- | ---------------------- | ---------------- | --------------- |
+| GET    | `/job-openings`              | Lista vagas publicadas | Público          | ✅ Implementado |
+| GET    | `/job-openings/{id}`         | Detalhe de uma vaga    | Público          | ✅ Implementado |
+| POST   | `/job-openings`              | Cria uma vaga          | Admin, Recruiter | ✅ Implementado |
+| PUT    | `/job-openings/{id}`         | Edita uma vaga         | Admin, Recruiter | ✅ Implementado |
+| PATCH  | `/job-openings/{id}/publish` | Publica uma vaga       | Admin, Recruiter | ✅ Implementado |
+| PATCH  | `/job-openings/{id}/close`   | Fecha uma vaga         | Admin, Recruiter | ✅ Implementado |
+| DELETE | `/job-openings/{id}`         | Remove uma vaga        | Admin            | ✅ Implementado |
+
+> ✅ **Filtro de status aplicado:** o `index` retorna apenas vagas `published` (portal público não vê `draft`/`closed`).
+>
+> ⚠️ **Pendência conhecida:** paginação ainda não aplicada (`index` usa `->get()`, traz tudo). A implementar junto com filtros/ordenação por endpoint. Listagem interna com `draft`/`closed` (via `?status=`, role-aware) também fica pra esse bloco.
+
+**Detalhes de implementação:**
+- Route model binding por UUID nos endpoints com `{id}`.
+- `created_by` (autoria) vem do usuário autenticado, não do corpo.
+- `hiring_manager_ids` (opcional no POST/PUT) valida cada id via Rule `IsHiringManager` — precisa ser user com role `hiring-manager` (retorna `422` se não for).
+- Status HTTP: `201` (POST), `200` (GET/PUT/PATCH), `204` (DELETE).
 
 ### Candidaturas
 
