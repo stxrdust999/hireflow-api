@@ -27,20 +27,21 @@ class JobOpeningService
     public function create(array $data): JobOpening
     {
         $jobOpening = JobOpening::create([
-            'company_id'  => $data['company_id'],
-            'created_by'  => $data['created_by'],
-            'title'       => $data['title'],
+            'company_id' => $data['company_id'],
+            'created_by' => $data['created_by'],
+            'title' => $data['title'],
             'description' => $data['description'],
-            'location'    => $data['location'],
-            'type'        => $data['type'],
+            'location' => $data['location'],
+            'type' => $data['type'],
+            'status' => JobOpeningEnum::Draft
         ]);
 
         $jobOpening->stages()->createMany([
-            ['name' => 'Triagem',            'order' => 1],
-            ['name' => 'Entrevista RH',      'order' => 2],
+            ['name' => 'Triagem', 'order' => 1],
+            ['name' => 'Entrevista RH', 'order' => 2],
             ['name' => 'Entrevista Técnica', 'order' => 3],
-            ['name' => 'Proposta',           'order' => 4],
-            ['name' => 'Contratado',         'order' => 5],
+            ['name' => 'Proposta', 'order' => 4],
+            ['name' => 'Contratado', 'order' => 5],
         ]);
 
         if (!empty($data['hiring_manager_ids']))
