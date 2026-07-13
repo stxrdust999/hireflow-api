@@ -547,6 +547,53 @@ Método no model `User`. Aceita uma slug ou várias (lógica **OR** — true se 
 
 ---
 
+## Módulo JobOpening — primeiro domínio REST protegido
+
+Primeiro CRUD completo protegido por role. Introduziu vários padrões que valem pros próximos domínios (Application, Comment, Admin).
+
+### Arquivos
+
+```
+app/Http/Controllers/Api/Jobs/JobOpeningController.php   ← 7 métodos (index, show, store, update, publish, close, destroy)
+app/Http/Requests/JobOpening/StoreJobOpeningRequest.php  ← criação (campos required)
+app/Http/Requests/JobOpening/UpdateJobOpeningRequest.php ← edição (campos sometimes)
+app/Http/Resources/JobOpeningResource.php                ← saída (flat, reaproveitável)
+app/Rules/IsHiringManager.php                            ← Rule custom
+```
+
+### Decisões — Controller
+
+- **Route model binding com UUID:** métodos com `{jobOpening}` recebem `JobOpening $jobOpening` já resolvido (404 automático se não existir). Funciona com UUID por causa do `HasUuids`. **O nome do parâmetro na rota (`{jobOpening}`) precisa bater com o do método** — senão o binding não resolve.
+- **`created_by` vem do token, não do body:** no `store`, `$data['created_by'] = $request->user()->id` — autoria não pode ser forjada pelo cliente. Por isso `created_by` **não** está nas `rules()`.
+- **Eager loading pra evitar N+1:** todo método que devolve vaga(s) carrega `company` e `stages` (`with()` no `index`, `load()` nos demais) porque o Resource sempre acessa essas relações.
+- **Padrão de nomenclatura de variável:** quando o método recebe o Model por parâmetro e o Service devolve o mesmo objeto (mutação in-place), **reatribui o parâmetro** (`$jobOpening = $this->service->publish($jobOpening)`) — nunca criar `$publishedJobOpening`/`$closedJobOpening` (nome redundante pra fugir de conflito). `delete` não guarda retorno.
+- **`destroy` deleta direto** (`$jobOpening->delete()`), sem Service — operação simples sem efeito colateral. Retorna `204`.
+- **`index` filtra `status = published`:** rota pública só expõe vagas publicadas (candidato não vê `draft`/`closed`). Paginação e listagem interna com outros status (via `?status=` role-aware) ficam pro bloco de filtros. Ver `docs/07-api-conventions.md`.
+- **Status HTTP:** `store` → 201; `index`/`show`/`update`/`publish`/`close` → 200; `destroy` → 204.
+
+### Decisões — Requests
+
+- **Duas Requests separadas (Store/Update)**, não uma genérica: criar tem campos `required`, editar tem `sometimes` (edição parcial). A diferença de natureza (required vs sometimes) justifica separar. **DRY evitado de propósito:** por só ~6 campos, duplicar é mais legível que abstrair um prefixo dinâmico. Se virar muitos campos/Requests, aí extrai.
+- **`authorize()` → `true`:** controle de role fica na rota (`role:admin,recruiter` via `CheckRole`), fonte única. `authorize()` fica reservado pra checagem de recurso específico quando as Policies entrarem.
+
+### Decisão — Rule custom `IsHiringManager`
+
+Valida que cada id em `hiring_manager_ids` é um user **com role hiring-manager** (não só "user existe"). O `exists:users,id` sozinho não cruza a pivot de roles — por isso uma Rule class (`whereKey` + `whereHas('roles', slug=hiring-manager)` + `exists`). Escolha de colocar na Request (não no Service): dá `422` limpo com mensagem clara pro front. Reutilizada nas duas Requests (Store e Update) — esse é o reuso que **vale** (uma Rule pra duas Requests), diferente de abstrair as regras inteiras.
+
+### Decisão — Resource enxuto por enquanto
+
+`JobOpeningResource` expõe só campos públicos + `company` (inline) + `stages`. **`creator` e `hiringManagers` ficaram de fora de propósito** — são dados internos. A ideia de visão diferenciada (público vs gerência, via `mergeWhen` por role) foi discutida mas adiada (YAGNI) — será revisitada quando o front definir o que cada tela precisa. `company` inline agora; vira `CompanyResource` quando o módulo Company existir. `status` exposto como `->value` (string crua do enum).
+
+### Fix — status inicial no Service
+
+`JobOpeningService::create` não passava `status`, contando com o `default('draft')` do banco. Mas o **default do banco não reflete na instância em memória** retornada por `create()` — `$jobOpening->status` vinha `null`, quebrando o Resource (`->value` on null) só no `store` (index/show leem do banco, ok). Corrigido setando `'status' => JobOpeningEnum::Draft` explícito no `create` — regra de domínio explícita, não default silencioso.
+
+### Convenção REST reafirmada
+
+CRUD usa verbo HTTP (`GET`/`POST`/`PUT`/`DELETE` sobre `/job-openings[/{id}]`); ações não-CRUD ganham sufixo (`/publish`, `/close` via `PATCH`). Híbrido canônico. RPC (ação na URL, tipo `/list`) foi considerado mas descartado — briga com Orval/Swagger e foge do contrato. `apiResource()` não usado aqui porque as rotas se dividem em 3 grupos de middleware (público / admin+recruiter / só admin).
+
+---
+
 ## Ordem de desenvolvimento
 
 ```
@@ -561,7 +608,7 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 4. ~~Models + Relationships~~ ✓
 5. ~~Factories & Seeders~~ ✓
 6. ~~Services~~ ✓
-7. Controllers + Routes + Requests — 🔄 em andamento (Auth ✓ completo; Jobs/Applications/Comments/Admin pendentes)
+7. Controllers + Routes + Requests — 🔄 em andamento (Auth ✓, JobOpening ✓; Applications/Comments/Admin pendentes)
 8. Policies
 9. Swagger
 
@@ -594,5 +641,7 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 - Fix aplicado em `bootstrap/app.php`: `redirectGuestsTo(fn () => null)` — evita `500` em rota protegida sem token (ver detalhes em [Arquitetura de Controllers, Requests & Resources](#arquitetura-de-controllers-requests--resources))
 - Constraint do `laravel/sanctum` no `composer.json` foi alterado de `^4.3` pra `^4.0` pelo próprio `install:api` (efeito colateral do comando, não escolha manual) — revertido pra `^4.3` manualmente
 - **Camada de autorização completa:** `User::hasRole()`, middleware `CheckRole` (alias `role` no `bootstrap/app.php`), fix de segurança no `RegisterRequest` (`in:candidate`) — todos com PHPDoc, testados via Postman (401/403/200). Ver seção "Autorização — `hasRole()` & middleware `CheckRole`"
+- **Módulo JobOpening completo:** `JobOpeningController` (7 métodos CRUD + publish/close), `StoreJobOpeningRequest`, `UpdateJobOpeningRequest`, `JobOpeningResource`, Rule custom `IsHiringManager` — todos com PHPDoc, rotas protegidas por `role:` (público / admin+recruiter / só admin no delete), testados via Postman ponta a ponta (201/200/204/401/403/422). Ver seção "Módulo JobOpening — primeiro domínio REST protegido"
+- Fix aplicado no `JobOpeningService::create`: `status` setado explícito como `JobOpeningEnum::Draft` (default do banco não reflete na instância em memória)
 - Repositório remoto: atualizado
-- **Próximo passo: `JobOpeningController` (primeiro domínio protegido por `role:`) + Requests + Resources + rotas. Depois: Applications, Comments, Admin. Pendências rápidas: Policies (nível de recurso), fluxo de convite de usuário interno**
+- **Próximo passo: módulo Applications (candidaturas) — Controller/Requests/Resources/rotas. Depois: Comments, Admin. Pendências rápidas: Policies (autorização nível de recurso — ex: HM só mexe nas próprias vagas), fluxo de convite de usuário interno, `CompanyResource` (quando módulo Company existir)**
