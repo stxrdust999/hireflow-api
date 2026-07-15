@@ -594,6 +594,64 @@ CRUD usa verbo HTTP (`GET`/`POST`/`PUT`/`DELETE` sobre `/job-openings[/{id}]`); 
 
 ---
 
+## Módulo Application — primeiro domínio com autorização de recurso (Policies)
+
+Módulo mais denso até aqui. Introduziu Policies, rotas aninhadas e a distinção entre autorizar e escopar.
+
+### Arquivos
+
+```
+app/Http/Controllers/Api/Applications/ApplicationController.php  ← 6 métodos
+app/Http/Requests/Application/StoreApplicationRequest.php        ← só resume_url
+app/Http/Requests/Application/MoveApplicationRequest.php         ← só stage_id
+app/Http/Resources/ApplicationResource.php
+app/Policies/ApplicationPolicy.php                               ← view, move, withdraw
+app/Policies/JobOpeningPolicy.php                                ← viewApplications
+```
+
+### Decisão — Policies agora (não depois)
+
+Este é o primeiro domínio onde `role:` na rota **não basta**: "candidato saca candidatura" é role, mas "candidato saca a **própria**" é recurso. Alternativa considerada e descartada: `if` de posse dentro dos métodos, formalizando em Policy depois — descartada porque espalhar `if` de autorização é exatamente o anti-padrão que Policy resolve, e a dívida seria refatorada logo em seguida.
+
+### Policies — como funcionam aqui
+
+- Invocadas com `$this->authorize('ability', $recurso)` no topo do método. **Não** retornam bool pra ramificar — **lançam** `403` e o método para. Nunca usar dentro de `if`.
+- Auto-discovery por convenção (`Application` → `ApplicationPolicy`), sem registro manual.
+- **Pré-requisito Laravel 11+:** o `Controller` base vem **vazio** — o trait `AuthorizesRequests` não é mais incluído por padrão. Foi adicionado em `app/Http/Controllers/Controller.php`; sem ele, `$this->authorize()` não existe.
+- `ApplicationPolicy::move` delega pra `view` (regra idêntica) — reuso que vale, não abstração forçada.
+- `JobOpeningPolicy::viewApplications` autoriza contra a **vaga**, não contra a candidatura: a ação é listagem, não existe uma Application específica pra autorizar. Por isso vive na Policy do JobOpening.
+
+### Decisão — Policy vs escopo de query
+
+Nem toda restrição é Policy:
+
+- **Policy** = "pode agir sobre **este recurso**?" — precisa de um recurso.
+- **Escopo (`where`)** = listagem das próprias coisas. `myApplications` filtra `where('candidate_id', Auth::id())` — sem Policy, porque é **fisicamente impossível** retornar candidatura alheia. Filtrar ≠ autorizar.
+- Mas `index` (candidaturas de uma vaga) **precisa** de Policy mesmo sendo listagem — o filtro é por vaga, não por usuário, então a autorização recai sobre a vaga.
+
+Regra: listar as minhas coisas = filtrar por mim. Tocar em coisa específica (ou listar coisas de recurso de terceiro) = Policy.
+
+### Decisões — Controller
+
+- **Rotas aninhadas + binding duplo:** `store(StoreApplicationRequest $request, JobOpening $jobOpening)` — Request resolvida por tipo, JobOpening por nome+tipo da rota (`{jobOpening}`).
+- **Três origens de dado no `store`:** `resume_url` (corpo), `candidate_id` (token, via `Auth::id()`), `job_id` (URL, via `$jobOpening->id`). Os dois últimos nunca vêm do corpo.
+- **Por que `job_id` na URL e não no corpo:** (1) hierarquia REST — candidatura pertence à vaga; (2) fonte única — evita URL dizer vaga A e corpo dizer vaga B; (3) binding já valida existência com `404` de graça.
+- **Nomes divergem de propósito:** Controller usa vocabulário REST (`store`, `index`, `show`), Service usa vocabulário de domínio (`apply`, `move`, `withdraw`). `store` ↔ `apply` é a mesma ação em duas linguagens.
+
+### Decisão — movimentação livre no pipeline
+
+`stage_id` (destino) vem do **corpo**; o Service **não** calcula a próxima etapa. Recruiter/HM podem avançar, pular ou **retroceder** o candidato — decisão consciente: o domínio real de recrutamento precisa reavaliar candidatos. Mover pra última etapa marca `approved` (lógica já existente no Service).
+
+### Decisão — duplicata no Service (não na Request)
+
+Checagem "mesmo `candidate_id` + `job_id` já existe" ficou no `ApplicationService::apply`, não numa rule `unique` composta. Motivo: é regra de domínio, e `candidate_id`/`job_id` nem estão no corpo (vêm de token/URL) — forçar `unique` composto na Request seria desajeitado. Lança `\Exception`.
+
+### Bug de rota encontrado no teste (lição)
+
+`GET /me/applications` foi movida pra raiz do `v1` e **perdeu os middlewares** (`auth:sanctum`, `role:candidate`) — eles moravam no grupo de onde ela saiu. Sintoma: lista sempre vazia (sem `auth:sanctum`, `Auth::id()` é `null`, e `where('candidate_id', null)` não casa com nada) **e** endpoint público. Lição: **mover rota entre grupos carrega a URL, não os middlewares.**
+
+---
+
 ## Ordem de desenvolvimento
 
 ```
@@ -608,8 +666,8 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 4. ~~Models + Relationships~~ ✓
 5. ~~Factories & Seeders~~ ✓
 6. ~~Services~~ ✓
-7. Controllers + Routes + Requests — 🔄 em andamento (Auth ✓, JobOpening ✓; Applications/Comments/Admin pendentes)
-8. Policies
+7. Controllers + Routes + Requests — 🔄 em andamento (Auth ✓, JobOpening ✓, Application ✓; Comments/Admin pendentes)
+8. Policies — 🔄 em andamento (`ApplicationPolicy` ✓, `JobOpeningPolicy` ✓; demais domínios conforme necessidade)
 9. Swagger
 
 ---
@@ -644,4 +702,8 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 - **Módulo JobOpening completo:** `JobOpeningController` (7 métodos CRUD + publish/close), `StoreJobOpeningRequest`, `UpdateJobOpeningRequest`, `JobOpeningResource`, Rule custom `IsHiringManager` — todos com PHPDoc, rotas protegidas por `role:` (público / admin+recruiter / só admin no delete), testados via Postman ponta a ponta (201/200/204/401/403/422). Ver seção "Módulo JobOpening — primeiro domínio REST protegido"
 - Fix aplicado no `JobOpeningService::create`: `status` setado explícito como `JobOpeningEnum::Draft` (default do banco não reflete na instância em memória)
 - Repositório remoto: atualizado
-- **Próximo passo: módulo Applications (candidaturas) — Controller/Requests/Resources/rotas. Depois: Comments, Admin. Pendências rápidas: Policies (autorização nível de recurso — ex: HM só mexe nas próprias vagas), fluxo de convite de usuário interno, `CompanyResource` (quando módulo Company existir)**
+- **Módulo Application completo:** `ApplicationController` (6 métodos), `StoreApplicationRequest`, `MoveApplicationRequest`, `ApplicationResource`, `ApplicationPolicy` (view/move/withdraw), `JobOpeningPolicy` (viewApplications) — todos com PHPDoc, testados via Postman incluindo os cenários de Policy (HM não-dono → 403, candidato sacando candidatura alheia → 403). Ver seção "Módulo Application — primeiro domínio com autorização de recurso (Policies)"
+- Trait `AuthorizesRequests` adicionado ao `Controller` base (Laravel 11+ não inclui por padrão) — sem ele `$this->authorize()` não existe
+- Fix aplicado no `ApplicationService::apply`: bloqueio de candidatura duplicada (mesmo `candidate_id` + `job_id`)
+- Fix aplicado em `routes/api.php`: `me/applications` estava sem `auth:sanctum`/`role:candidate` após ser movida de grupo — retornava lista vazia e ficava pública
+- **Próximo passo: módulo Comments (comentários internos por candidatura) — Controller/Requests/Resources/rotas + `CommentPolicy` (admin ou autor podem deletar). Depois: Admin (usuários/empresas). Pendências: paginação nas listagens (todos os módulos), fluxo de convite de usuário interno, `CompanyResource` (quando módulo Company existir)**
