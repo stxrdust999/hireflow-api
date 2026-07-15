@@ -24,10 +24,19 @@ class ApplicationService
      * } $data
      * @return Application
      *
+     * @throws \Exception Candidato já possui candidatura para essa vaga
      * @throws \Illuminate\Database\Eloquent\ModelNotFoundException Vaga sem stages cadastradas
      */
     public function apply(array $data): Application
     {
+        $alreadyApplied = Application::where('candidate_id', $data['candidate_id'])
+            ->where('job_id', $data['job_id'])
+            ->exists();
+
+        if ($alreadyApplied) {
+            throw new \Exception('Você já se candidatou a essa vaga.');
+        }
+
         $firstStage = JobStage::where('job_id', $data['job_id'])
             ->orderBy('order')
             ->firstOrFail();
@@ -57,9 +66,9 @@ class ApplicationService
     {
         ApplicationStageLog::create([
             'application_id' => $application->id,
-            'stage_id'       => $stage->id,
-            'moved_by'       => $author->id,
-            'moved_at'       => now(),
+            'stage_id' => $stage->id,
+            'moved_by' => $author->id,
+            'moved_at' => now(),
         ]);
 
         $isLastStage = !JobStage::where('job_id', $application->job_id)
