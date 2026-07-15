@@ -85,38 +85,52 @@ O middleware verifica se o usuário autenticado possui **pelo menos uma** das ro
 
 ### Nível de recurso — Laravel Policies
 
-🚧 *Implementação pendente.*
+✅ *Implementado — `ApplicationPolicy` e `JobOpeningPolicy` em `app/Policies/`.*
 
 Enquanto o middleware verifica se o usuário tem a role certa, as Policies verificam se o usuário tem permissão sobre **aquele recurso específico**. Esse é o mecanismo que implementa regras como "Hiring Manager só vê candidaturas das suas próprias vagas".
 
-```php
-// Exemplo conceitual — JobOpeningPolicy
-public function update(User $user, JobOpening $jobOpening): bool
-{
-    // Admin e Recruiter podem editar qualquer vaga
-    if ($user->hasRole('admin') || $user->hasRole('recruiter')) {
-        return true;
-    }
+**Como são invocadas:** `$this->authorize('ability', $recurso)` no Controller. O Laravel descobre a Policy pelo tipo do recurso (convenção `{Model}Policy`, sem registro manual) e lança `403` automaticamente se negar — não é preciso `if`, o método simplesmente para.
 
-    // Hiring Manager só pode interagir com vagas onde foi designado
-    return false;
+> ⚠️ **Pré-requisito (Laravel 11+):** o `Controller` base não vem mais com o trait `AuthorizesRequests`. Sem ele, `$this->authorize()` não existe. Foi adicionado em `app/Http/Controllers/Controller.php`.
+
+**Abilities implementadas:**
+
+| Policy | Ability | Regra | Usada em |
+| --- | --- | --- | --- |
+| `ApplicationPolicy` | `view` | admin/recruiter, ou HM da vaga da candidatura | `ApplicationController@show` |
+| `ApplicationPolicy` | `move` | mesma regra de `view` (delega) | `ApplicationController@move` |
+| `ApplicationPolicy` | `withdraw` | somente o candidato dono da candidatura | `ApplicationController@withdraw` |
+| `JobOpeningPolicy` | `viewApplications` | admin/recruiter, ou HM daquela vaga | `ApplicationController@index` |
+
+```php
+// ApplicationPolicy — implementação real
+public function view(User $user, Application $application): bool
+{
+    if ($user->hasRole(['admin', 'recruiter']))
+        return true;
+
+    return $user->hasRole('hiring-manager')
+        && $application->job->hiringManagers->contains($user->id);
 }
 
-// Exemplo conceitual — ApplicationPolicy
-public function moveStage(User $user, Application $application): bool
+public function withdraw(User $user, Application $application): bool
 {
-    if ($user->hasRole('admin') || $user->hasRole('recruiter')) {
-        return true;
-    }
-
-    // Hiring Manager só move candidatos em vagas às quais está vinculado
-    if ($user->hasRole('hiring-manager')) {
-        return $application->job->hiringManagers->contains($user->id);
-    }
-
-    return false;
+    return $user->id === $application->candidate_id;
 }
 ```
+
+### Policy vs escopo de query — quando NÃO usar Policy
+
+Nem toda restrição de acesso é uma Policy. A distinção:
+
+- **Policy** responde "este usuário pode agir sobre **este recurso específico**?" — exige um recurso em mãos (ex: sacar *esta* candidatura).
+- **Escopo de query** é usado quando a ação é uma **listagem das próprias coisas**. Não existe um recurso único para autorizar — a segurança vem do `where`.
+
+Exemplo: `GET /me/applications` não usa Policy. A query filtra `where('candidate_id', Auth::id())`, tornando **fisicamente impossível** retornar candidatura de outro usuário.
+
+Já `GET /job-openings/{id}/applications` também é listagem, mas **precisa** de Policy — porque o filtro é por vaga, não por usuário. A autorização recai sobre a **vaga** (`JobOpeningPolicy::viewApplications`), não sobre cada candidatura.
+
+**Regra prática:** listar as minhas coisas = filtrar por mim. Tocar numa coisa específica (ou listar as coisas de um recurso de terceiro) = Policy.
 
 ### Nível de model — Método auxiliar `hasRole()`
 

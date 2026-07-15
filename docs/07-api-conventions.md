@@ -198,14 +198,27 @@ GET /api/v1/job-openings?sort=created_at&direction=desc
 
 ### Candidaturas
 
-| Método | Endpoint                          | Descrição                        | Auth                 |
-| ------ | --------------------------------- | -------------------------------- | -------------------- |
-| GET    | `/job-openings/{id}/applications` | Lista candidaturas de uma vaga   | Admin, Recruiter, HM |
-| POST   | `/job-openings/{id}/applications` | Cria candidatura (inscrição)     | Candidate            |
-| GET    | `/applications/{id}`              | Detalhe de uma candidatura       | Admin, Recruiter, HM |
-| PATCH  | `/applications/{id}/stage`        | Move candidato de etapa          | Admin, Recruiter, HM |
-| PATCH  | `/applications/{id}/withdraw`     | Candidato retira candidatura     | Candidate            |
-| GET    | `/me/applications`                | Candidaturas do candidato logado | Candidate            |
+✅ _Módulo implementado — `ApplicationController`, testado ponta a ponta via Postman (incluindo os cenários de Policy)._
+
+| Método | Endpoint                          | Descrição                        | Auth                 | Status          |
+| ------ | --------------------------------- | -------------------------------- | -------------------- | --------------- |
+| GET    | `/job-openings/{id}/applications` | Lista candidaturas de uma vaga   | Admin, Recruiter, HM | ✅ Implementado |
+| POST   | `/job-openings/{id}/applications` | Cria candidatura (inscrição)     | Candidate            | ✅ Implementado |
+| GET    | `/applications/{id}`              | Detalhe de uma candidatura       | Admin, Recruiter, HM | ✅ Implementado |
+| PATCH  | `/applications/{id}/stage`        | Move candidato de etapa          | Admin, Recruiter, HM | ✅ Implementado |
+| PATCH  | `/applications/{id}/withdraw`     | Candidato retira candidatura     | Candidate            | ✅ Implementado |
+| GET    | `/me/applications`                | Candidaturas do candidato logado | Candidate            | ✅ Implementado |
+
+**Detalhes de implementação:**
+
+- **Autorização em duas camadas:** `role:` na rota (quem, por perfil) + Policy no Controller (sobre qual recurso). HM que não é responsável pela vaga recebe `403` mesmo tendo a role certa. Ver [Roles & Permissões](./05-roles-permissions.md#nível-de-recurso--laravel-policies).
+- **Origem dos dados no POST:** `resume_url` vem do corpo; `candidate_id` do token; `job_id` da URL (rota aninhada) — nenhum dos dois últimos é aceito no corpo.
+- **Candidatura duplicada é bloqueada** no `ApplicationService::apply` (mesmo `candidate_id` + `job_id`).
+- **`PATCH /stage` exige `stage_id` no corpo** (`uuid`, deve existir em `job_stages`). Não há avanço automático — recruiter/HM escolhem a etapa livremente, inclusive retrocedendo. Mover para a última etapa do pipeline marca a candidatura como `approved`.
+- **`withdraw` não deleta** — marca `status = withdrawn`, preservando o histórico em `application_stage_logs`.
+- Status HTTP: `201` (POST), `200` (GET/PATCH), `204` (withdraw).
+
+> ⚠️ **Pendência conhecida:** paginação não aplicada nas listagens (mesma pendência do módulo de vagas).
 
 ### Comentários
 
