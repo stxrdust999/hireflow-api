@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Applications\ApplicationController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Jobs\JobOpeningController;
 use Illuminate\Support\Facades\Route;
@@ -30,9 +31,38 @@ Route::prefix('v1')->group(function () {
             Route::patch('/{jobOpening}/close', [JobOpeningController::class, 'close']);
         });
 
+        // ===== ROTAS PROTEGIDAS - ADMIN, RECRUTADOR E HIRING MANAGER =====
+        Route::middleware(['auth:sanctum', 'role:admin,recruiter,hiring-manager'])->group(function () {
+            Route::get('/{jobOpening}/applications', [ApplicationController::class, 'index']);
+        });
+
         // ===== ROTAS PROTEGIDAS - SÓ ADMIN =====
         Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
             Route::delete('/{jobOpening}', [JobOpeningController::class, 'destroy']);
         });
+
+        // ===== ROTAS PROTEGIDAS - SÓ CANDIDATO =====
+        Route::middleware(['auth:sanctum', 'role:candidate'])->group(function () {
+            Route::post('/{jobOpening}/applications', [ApplicationController::class, 'store']);
+        });
+    });
+
+    Route::prefix('applications')->group(function () {
+        // ===== ROTAS PROTEGIDAS - ADMIN, RECRUTADOR E HIRING MANAGER =====
+        Route::middleware(['auth:sanctum', 'role:admin,recruiter,hiring-manager'])->group(function () {
+            Route::get('/{application}', [ApplicationController::class, 'show']);
+
+            Route::patch('/{application}/stage', [ApplicationController::class, 'move']);
+        });
+
+        // ===== ROTAS PROTEGIDAS - SÓ CANDIDATO =====
+        Route::middleware(['auth:sanctum', 'role:candidate'])->group(function () {
+            Route::patch('/{application}/withdraw', [ApplicationController::class, 'withdraw']);
+        });
+    });
+
+    // ===== ROTAS PROTEGIDAS - SÓ CANDIDATO =====
+    Route::middleware(['auth:sanctum', 'role:candidate'])->group(function () {
+        Route::get('me/applications', [ApplicationController::class, 'myApplications']);
     });
 });
