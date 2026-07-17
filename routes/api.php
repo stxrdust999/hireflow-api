@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Applications\ApplicationController;
 use App\Http\Controllers\Api\Auth\AuthController;
+use App\Http\Controllers\Api\Comments\CommentController;
 use App\Http\Controllers\Api\Jobs\JobOpeningController;
 use Illuminate\Support\Facades\Route;
 
@@ -53,12 +54,20 @@ Route::prefix('v1')->group(function () {
             Route::get('/{application}', [ApplicationController::class, 'show']);
 
             Route::patch('/{application}/stage', [ApplicationController::class, 'move']);
+
+            Route::get('/{application}/comments', [CommentController::class, 'index']);
+            Route::post('/{application}/comments', [CommentController::class, 'store']);
         });
 
         // ===== ROTAS PROTEGIDAS - SÓ CANDIDATO =====
         Route::middleware(['auth:sanctum', 'role:candidate'])->group(function () {
             Route::patch('/{application}/withdraw', [ApplicationController::class, 'withdraw']);
         });
+    });
+
+    // ===== ROTAS PROTEGIDAS - ADMIN, RECRUTADOR E HIRING MANAGER =====
+    Route::middleware(['auth:sanctum', 'role:admin,recruiter,hiring-manager'])->group(function () {
+        Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
     });
 
     // ===== ROTAS PROTEGIDAS - SÓ CANDIDATO =====
