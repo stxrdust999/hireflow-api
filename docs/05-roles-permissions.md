@@ -101,6 +101,7 @@ Enquanto o middleware verifica se o usuário tem a role certa, as Policies verif
 | `ApplicationPolicy` | `move` | mesma regra de `view` (delega) | `ApplicationController@move` |
 | `ApplicationPolicy` | `withdraw` | somente o candidato dono da candidatura | `ApplicationController@withdraw` |
 | `JobOpeningPolicy` | `viewApplications` | admin/recruiter, ou HM daquela vaga | `ApplicationController@index` |
+| `CommentPolicy` | `delete` | admin **ou** o autor do comentário | `CommentController@destroy` |
 
 ```php
 // ApplicationPolicy — implementação real

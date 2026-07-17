@@ -222,11 +222,20 @@ GET /api/v1/job-openings?sort=created_at&direction=desc
 
 ### Comentários
 
-| Método | Endpoint                      | Descrição           | Auth                 |
-| ------ | ----------------------------- | ------------------- | -------------------- |
-| GET    | `/applications/{id}/comments` | Lista comentários   | Admin, Recruiter, HM |
-| POST   | `/applications/{id}/comments` | Adiciona comentário | Admin, Recruiter, HM |
-| DELETE | `/comments/{id}`              | Remove comentário   | Admin, autor         |
+✅ _Módulo implementado — `CommentController`, testado ponta a ponta via Postman._
+
+| Método | Endpoint                      | Descrição           | Auth                 | Status          |
+| ------ | ----------------------------- | ------------------- | -------------------- | --------------- |
+| GET    | `/applications/{id}/comments` | Lista comentários   | Admin, Recruiter, HM | ✅ Implementado |
+| POST   | `/applications/{id}/comments` | Adiciona comentário | Admin, Recruiter, HM | ✅ Implementado |
+| DELETE | `/comments/{id}`              | Remove comentário   | Admin, autor         | ✅ Implementado |
+
+**Detalhes de implementação:**
+
+- **`index`/`store` reutilizam a `ApplicationPolicy::view`** — não têm ability própria. Um HM só lê/escreve comentários de candidaturas das próprias vagas (a mesma pergunta "pode ver esta candidatura?" resolve as duas coisas).
+- **`DELETE` usa a `CommentPolicy::delete`** — regra "admin **OU** autor". A role na rota libera as três roles internas; a Policy estreita para admin ou o autor do comentário.
+- **Origem dos dados no POST:** só o texto vem do corpo, na chave `comment` (o `CommentService` grava na coluna `body`). `author_id` vem do token, `application_id` da URL.
+- **Comentários são internos** — candidatos não têm acesso (barrados pela `role:` da rota).
 
 ### Notificações
 
