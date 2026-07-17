@@ -652,6 +652,41 @@ Checagem "mesmo `candidate_id` + `job_id` já existe" ficou no `ApplicationServi
 
 ---
 
+## Módulo Comment — comentários internos por candidatura
+
+Módulo enxuto. Reforçou padrões (reuso de Policy, decisão de `with()`) e trouxe uma terceira forma de regra de Policy.
+
+### Arquivos
+
+```
+app/Http/Controllers/Api/Comments/CommentController.php  ← index, store, destroy
+app/Http/Requests/Comment/StoreCommentRequest.php        ← só 'comment'
+app/Http/Resources/CommentResource.php
+app/Policies/CommentPolicy.php                            ← delete
+```
+
+### Decisão — reuso da `ApplicationPolicy::view` (não criar ability nova)
+
+`index` e `store` de comentário precisam autorizar contra a **candidatura** ("esse HM pode mexer nesta candidatura?"). Essa pergunta já é respondida pela `ApplicationPolicy::view` — então os dois métodos chamam `$this->authorize('view', $application)`, sem criar ability nova. Reuso que vale: uma ability servindo dois módulos.
+
+### Decisão — `CommentPolicy::delete` = "admin OU autor"
+
+Terceira forma de regra de Policy no projeto (além de "interno ou dono-da-vaga" e "só o dono"): admin passa sempre, senão precisa ser o autor (`$user->id === $comment->author_id`). Role na rota libera as 3 roles internas; a Policy estreita.
+
+### Decisão — `with()` derivado do Resource (regra fechada)
+
+Fechou a regra de eager loading: **`with()` = exatamente as relações que o Resource navega**. Distinção-chave: `$this->author_id` é **coluna** (grátis, já veio no registro); `$this->author->name` é **relação navegada** (exige `with('author')`). Se o Resource só precisa da FK, não navega e o `with()` fica vazio. `CommentResource` expõe `author: {id, name}` (nome, não só id) — por isso navega `author` e o `index`/`store` carregam `with('author')`/`load('author')`. `application_id` fica como coluna crua.
+
+### Pegadinha — chave `comment` vs coluna `body`
+
+O `CommentService::create` recebe `$data['comment']` mas grava na coluna `body`. Então a `StoreCommentRequest` valida `comment` (não `body`) — `body` é só o nome interno da coluna.
+
+### Correção de pastas
+
+Criadas inicialmente fora do padrão (`Requests/Comments/` plural, `Controllers/Api/Comment/` singular) e movidas pro padrão do projeto: **Requests no singular** (`Requests/Comment/`), **Controllers no plural** (`Controllers/Api/Comments/`).
+
+---
+
 ## Ordem de desenvolvimento
 
 ```
@@ -666,7 +701,7 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 4. ~~Models + Relationships~~ ✓
 5. ~~Factories & Seeders~~ ✓
 6. ~~Services~~ ✓
-7. Controllers + Routes + Requests — 🔄 em andamento (Auth ✓, JobOpening ✓, Application ✓; Comments/Admin pendentes)
+7. Controllers + Routes + Requests — 🔄 em andamento (Auth ✓, JobOpening ✓, Application ✓, Comment ✓; Admin pendente)
 8. Policies — 🔄 em andamento (`ApplicationPolicy` ✓, `JobOpeningPolicy` ✓; demais domínios conforme necessidade)
 9. Swagger
 
@@ -706,4 +741,5 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 - Trait `AuthorizesRequests` adicionado ao `Controller` base (Laravel 11+ não inclui por padrão) — sem ele `$this->authorize()` não existe
 - Fix aplicado no `ApplicationService::apply`: bloqueio de candidatura duplicada (mesmo `candidate_id` + `job_id`)
 - Fix aplicado em `routes/api.php`: `me/applications` estava sem `auth:sanctum`/`role:candidate` após ser movida de grupo — retornava lista vazia e ficava pública
-- **Próximo passo: módulo Comments (comentários internos por candidatura) — Controller/Requests/Resources/rotas + `CommentPolicy` (admin ou autor podem deletar). Depois: Admin (usuários/empresas). Pendências: paginação nas listagens (todos os módulos), fluxo de convite de usuário interno, `CompanyResource` (quando módulo Company existir)**
+- **Módulo Comment completo:** `CommentController` (index/store/destroy), `StoreCommentRequest`, `CommentResource`, `CommentPolicy` (delete = admin ou autor) — todos com PHPDoc, testados via Postman incluindo cenários de Policy (não-autor não-admin → 403, admin → 204, autor → 204). `index`/`store` reutilizam `ApplicationPolicy::view`. Ver seção "Módulo Comment — comentários internos por candidatura"
+- **Próximo passo: módulo Admin (gestão de usuários e empresas) — `UserController`/`CompanyController`, provavelmente com `UserService` (já existe: list/assignRole/deactivate). Depois: Notifications. Pendências: paginação nas listagens (todos os módulos), fluxo de convite de usuário interno, `CompanyResource`, Swagger**
