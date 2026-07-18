@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Applications\ApplicationController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Comments\CommentController;
 use App\Http\Controllers\Api\Jobs\JobOpeningController;
+use App\Http\Controllers\Api\Notifications\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -62,6 +63,16 @@ Route::prefix('v1')->group(function () {
         // ===== ROTAS PROTEGIDAS - SÓ CANDIDATO =====
         Route::middleware(['auth:sanctum', 'role:candidate'])->group(function () {
             Route::patch('/{application}/withdraw', [ApplicationController::class, 'withdraw']);
+        });
+    });
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::prefix('notifications')->group(function () {
+            Route::get('/', [NotificationController::class, 'index']);
+
+            Route::patch('/{notification}/read', [NotificationController::class, 'markAsRead']);
+
+            Route::patch('/read-all', [NotificationController::class, 'markAllAsRead']);
         });
     });
 
