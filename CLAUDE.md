@@ -687,6 +687,42 @@ Criadas inicialmente fora do padrão (`Requests/Comments/` plural, `Controllers/
 
 ---
 
+## Módulo Notification — o mais enxuto, e o único sem `role:`
+
+### Arquivos
+
+```
+app/Http/Controllers/Api/Notifications/NotificationController.php  ← index, markAsRead, markAllAsRead
+app/Http/Resources/NotificationResource.php
+app/Policies/NotificationPolicy.php                                ← read
+```
+
+Sem Request — nenhum dos três endpoints tem corpo.
+
+### Decisão — rotas sem `role:` (primeira vez no projeto)
+
+Notificação não é sobre perfil: **todo** usuário autenticado tem as suas, independente de ser admin ou candidato. Por isso o grupo leva só `auth:sanctum`, sem `role:`. Até aqui, todo grupo protegido tinha uma role — este é a exceção justificada.
+
+### Decisão — Policy só no `markAsRead`
+
+Aplicação direta da regra fechada no módulo Application:
+
+- `index` → "as minhas" = escopo `where('user_id', Auth::id())`, sem Policy.
+- `markAllAsRead` → o Service já recebe o `User` e filtra por ele, sem Policy.
+- `markAsRead({notification})` → toca um **recurso específico por id na URL** → Policy (`NotificationPolicy::read`, compara `$user->id === $notification->user_id`).
+
+Alternativa considerada e descartada: fazer a checagem inline (é uma linha só, "arquivo inteiro pra uma linha"). Descartada por **consistência** — é a mesma situação de `show`/`move`/`withdraw`/`destroy`, que já usam Policy. Justificar por "posso escalar a regra depois" seria YAGNI ao contrário; o motivo real é padrão fixo.
+
+### Decisão — Resource com `is_read` derivado
+
+Expõe `is_read` (`read_at !== null`) **além** de `read_at` — o front quase sempre quer o booleano pra renderizar "não lida", e o timestamp só às vezes. `user_id` fica de fora: o endpoint já é escopado no usuário autenticado, devolver "essa notificação é sua" é redundante.
+
+### Status HTTP
+
+`markAsRead` → `200` **com** a notificação atualizada (front quer ver o `read_at` novo). `markAllAsRead` → `204` sem corpo (não há o que mostrar). Distinção de intenção, não de simetria.
+
+---
+
 ## Ordem de desenvolvimento
 
 ```
@@ -701,7 +737,7 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 4. ~~Models + Relationships~~ ✓
 5. ~~Factories & Seeders~~ ✓
 6. ~~Services~~ ✓
-7. Controllers + Routes + Requests — 🔄 em andamento (Auth ✓, JobOpening ✓, Application ✓, Comment ✓; Admin pendente)
+7. Controllers + Routes + Requests — 🔄 em andamento (Auth ✓, JobOpening ✓, Application ✓, Comment ✓, Notification ✓; Admin pendente)
 8. Policies — 🔄 em andamento (`ApplicationPolicy` ✓, `JobOpeningPolicy` ✓; demais domínios conforme necessidade)
 9. Swagger
 
@@ -742,4 +778,5 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 - Fix aplicado no `ApplicationService::apply`: bloqueio de candidatura duplicada (mesmo `candidate_id` + `job_id`)
 - Fix aplicado em `routes/api.php`: `me/applications` estava sem `auth:sanctum`/`role:candidate` após ser movida de grupo — retornava lista vazia e ficava pública
 - **Módulo Comment completo:** `CommentController` (index/store/destroy), `StoreCommentRequest`, `CommentResource`, `CommentPolicy` (delete = admin ou autor) — todos com PHPDoc, testados via Postman incluindo cenários de Policy (não-autor não-admin → 403, admin → 204, autor → 204). `index`/`store` reutilizam `ApplicationPolicy::view`. Ver seção "Módulo Comment — comentários internos por candidatura"
-- **Próximo passo: módulo Admin (gestão de usuários e empresas) — `UserController`/`CompanyController`, provavelmente com `UserService` (já existe: list/assignRole/deactivate). Depois: Notifications. Pendências: paginação nas listagens (todos os módulos), fluxo de convite de usuário interno, `CompanyResource`, Swagger**
+- **Módulo Notification completo:** `NotificationController` (index/markAsRead/markAllAsRead), `NotificationResource`, `NotificationPolicy` (read = só o destinatário) — todos com PHPDoc, testados via Postman (403 ao marcar notificação alheia). Sem Request (endpoints sem corpo) e sem `role:` nas rotas. Ver seção "Módulo Notification"
+- **Próximo passo: módulo Admin — `UserController` (`UserService` já existe: list/assignRole/deactivate) + `CompanyController`/`CompanyResource`/`CompanyService` (este último não existe, precisa criar). Aqui também entra o fluxo de convite de usuário interno. Depois: OAuth (`SocialAuthController`, service pronto), password reset, paginação em todas as listagens, e Swagger**
