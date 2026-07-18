@@ -239,11 +239,21 @@ GET /api/v1/job-openings?sort=created_at&direction=desc
 
 ### Notificações
 
-| Método | Endpoint                   | Descrição                            | Auth |
-| ------ | -------------------------- | ------------------------------------ | ---- |
-| GET    | `/notifications`           | Lista notificações do usuário logado | ✅   |
-| PATCH  | `/notifications/{id}/read` | Marca notificação como lida          | ✅   |
-| PATCH  | `/notifications/read-all`  | Marca todas como lidas               | ✅   |
+✅ _Módulo implementado — `NotificationController`, testado ponta a ponta via Postman._
+
+| Método | Endpoint                   | Descrição                            | Auth | Status          |
+| ------ | -------------------------- | ------------------------------------ | ---- | --------------- |
+| GET    | `/notifications`           | Lista notificações do usuário logado | ✅   | ✅ Implementado |
+| PATCH  | `/notifications/{id}/read` | Marca notificação como lida          | ✅   | ✅ Implementado |
+| PATCH  | `/notifications/read-all`  | Marca todas como lidas               | ✅   | ✅ Implementado |
+
+**Detalhes de implementação:**
+
+- **Único módulo sem `role:` nas rotas** — notificação não é sobre perfil: todo usuário autenticado tem as suas. As rotas levam apenas `auth:sanctum`.
+- **`index` e `read-all` são escopados** (sem Policy): o `index` filtra `where('user_id', Auth::id())` e o Service do `read-all` já recebe o usuário e filtra internamente.
+- **`{id}/read` usa a `NotificationPolicy::read`** — é o único que toca um recurso específico por id, então precisa de checagem de posse.
+- **Resposta expõe `is_read`** (booleano derivado de `read_at`) além do `read_at` em si. `user_id` não é exposto — o endpoint já é escopado no usuário autenticado.
+- Status HTTP: `200` (GET e `{id}/read`, que devolve a notificação atualizada), `204` (`read-all`, sem corpo).
 
 ### Admin
 
