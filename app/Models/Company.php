@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Representa uma empresa contratante no sistema.
@@ -18,6 +19,21 @@ class Company extends Model
     protected $fillable = [
         'name',
         'slug',
-        'logo_url'
+        'logo_url',
+        'is_active'
     ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
+    /**
+     * Vagas publicadas pela empresa.
+     *
+     * @return HasMany<JobOpening>
+     */
+    public function jobOpenings(): HasMany
+    {
+        return $this->hasMany(JobOpening::class);
+    }
 }
