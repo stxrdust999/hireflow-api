@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Applications\ApplicationController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Comments\CommentController;
+use App\Http\Controllers\Api\Companies\CompanyController;
 use App\Http\Controllers\Api\Jobs\JobOpeningController;
 use App\Http\Controllers\Api\Notifications\NotificationController;
 use Illuminate\Support\Facades\Route;
@@ -84,5 +85,20 @@ Route::prefix('v1')->group(function () {
     // ===== ROTAS PROTEGIDAS - SÓ CANDIDATO =====
     Route::middleware(['auth:sanctum', 'role:candidate'])->group(function () {
         Route::get('me/applications', [ApplicationController::class, 'myApplications']);
+    });
+
+    Route::prefix('companies')->group(function () {
+        // ===== ROTAS PUBLICAS =====
+        Route::get('/', [CompanyController::class, 'index']);
+        Route::get('/{slug}', [CompanyController::class, 'show']);
+
+        // ===== ROTAS PROTEGIDAS - SÓ ADMIN =====
+        Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+            Route::post('/', [CompanyController::class, 'store']);
+
+            Route::put('/{company}', [CompanyController::class, 'update']);
+
+            Route::delete('/{company}', [CompanyController::class, 'destroy']);
+        });
     });
 });
