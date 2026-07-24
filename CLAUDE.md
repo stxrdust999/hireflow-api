@@ -272,8 +272,10 @@ Todas as models estão em `app/Models/`. Traits utilizadas:
 
 ```php
 // Traits: HasFactory, HasUuids
-// Fillable: name, slug, logo_url
-// Sem relacionamentos definidos ainda
+// Fillable: name, slug, logo_url, is_active
+// Casts: is_active → boolean
+// Relacionamentos:
+//   jobOpenings(): HasMany → JobOpening
 ```
 
 ### JobOpening
@@ -418,6 +420,12 @@ UserService
 + list(): Collection
 + assignRole(user: User, role: Role): User
 + deactivate(user: User): void
+
+CompanyService
++ create(data: array): Company
++ update(data: array, company: Company): Company
++ deactivate(company: Company): void
+- generateUniqueSlug(name: string): string   ← privado
 ```
 
 ### Decisões de implementação dos Services
@@ -440,6 +448,13 @@ UserService
 - `apply` busca a primeira stage da vaga via `orderBy('order')->firstOrFail()` — nunca assume qual é
 - `move` detecta automaticamente se é a última stage (`!JobStage::where('order', '>', $stage->order)->exists()`) e atualiza status para `Hired`
 - `withdraw` não deleta o registro — apenas marca `status = withdrawn` para preservar auditoria em `application_stage_logs`
+
+**CompanyService**
+
+- `create` gera o slug a partir do `name` — o cliente nunca manda slug. `generateUniqueSlug` (privado) usa `Str::slug()` + loop de sufixo numérico (`acme-corp`, `acme-corp-2`) checando com `->exists()`. O `unique` do banco continua sendo a rede real contra race condition
+- `update` **não** mexe no slug — congelado após a criação, senão renomear a empresa quebra links já compartilhados
+- `create`/`update` passam `$data` direto pro Eloquent (não campo a campo) — o `$fillable` do Model é a rede contra mass assignment, e o `validated()` da Request garante que só chave declarada chega. Isso é o que faz a edição parcial (`sometimes`) funcionar sem `Undefined array key`
+- `deactivate` usa `is_active = false` — a FK `job_openings.company_id` é `cascadeOnDelete`, então delete real apagaria vagas, stages, candidaturas e a trilha de auditoria inteira
 
 **UserService**
 
@@ -723,6 +738,63 @@ Expõe `is_read` (`read_at !== null`) **além** de `read_at` — o front quase s
 
 ---
 
+## Módulo Company — primeiro do bloco Admin, e o primeiro com chave pública legível
+
+Primeiro módulo em que a URL pública não usa UUID, e o primeiro em que `DELETE` não deleta.
+
+### Arquivos
+
+```
+app/Http/Controllers/Api/Companies/CompanyController.php  ← index, show, store, update, destroy
+app/Http/Requests/Company/StoreCompanyRequest.php         ← name required
+app/Http/Requests/Company/UpdateCompanyRequest.php        ← sometimes (parcial)
+app/Http/Resources/CompanyResource.php
+app/Services/CompanyService.php
+database/migrations/..._add_is_active_to_companies.php
+```
+
+Sem Policy — ver decisão abaixo.
+
+### Decisão — slug como chave pública
+
+O slug é o identificador legível que vai pra URL do front (`/empresas/acme-corp`); o UUID continua sendo PK e FK. Os dois convivem: **banco usa UUID, mundo usa slug**. Gerado no Service (nunca vem do cliente) porque `Str::slug()` normaliza acento/espaço/caixa e a resolução de colisão exige consultar o banco — regra de domínio, mesma linha do bloqueio de candidatura duplicada no `ApplicationService::apply`. Congelado no update pra não quebrar links compartilhados.
+
+### Decisão — `show` sem route model binding
+
+Único método do projeto que **não** usa binding. Motivo: `{company:slug}` resolveria a empresa por slug, mas traria **também as desativadas** — o registro sumiria da listagem e continuaria acessível por URL direta. Trocado por busca explícita:
+
+```php
+Company::where('slug', $slug)->where('is_active', true)->firstOrFail();
+```
+
+`firstOrFail()` dá `404` — pro público, empresa desativada simplesmente não existe. Consequência: a rota é `{slug}` (não `{company:slug}`) e o método recebe `string $slug`.
+
+### Decisão — sem Policy (role basta)
+
+Empresa não tem dono: não existe "este admin pode editar esta empresa mas não aquela". Aplicação direta da regra fechada no módulo Notification — Policy só quando a autorização depende do **recurso**, não só do perfil. `role:admin` na rota é a decisão inteira.
+
+### Decisão — `whenLoaded` no Resource (novidade do módulo)
+
+`job_openings` é embrulhado em `whenLoaded('jobOpenings', ...)`: se a relação não foi carregada, a chave **some do JSON** (não vem como `null`). Efeito prático: **mesmo Resource, saídas diferentes**, controladas pelo Controller — o `index` não carrega (listagem enxuta, sem N+1) e o `show` carrega. Sem isso seriam dois Resources.
+
+O `show` usa **constrained eager loading** pra não vazar rascunho:
+
+```php
+$company->load(['jobOpenings' => fn($query) => $query->where('status', JobOpeningEnum::Published)]);
+```
+
+O closure adiciona `WHERE status = 'published'` na query da relação — filtra **no banco**, não em PHP. O filtro fica no Controller porque **Resource formata, não filtra**; se estivesse no Resource, as vagas draft ainda viriam do banco.
+
+### Decisão — `destroy` desativa
+
+`DELETE /companies/{id}` chama `deactivate`, não `delete`. Verbo HTTP e nome REST preservados, efeito é desativação lógica — mesmo desalinhamento intencional de `store`↔`apply` do módulo Application. Motivo em `docs/03-database.md`: o cascade levaria a auditoria junto.
+
+### Dívida encontrada na revisão (não corrigida)
+
+`GET /job-openings/{jobOpening}` **não filtra status** — vaga em `draft` é visível publicamente por UUID, mesmo não aparecendo no `index`. Mesma classe de vazamento que o Company resolveu. Corrigir junto com o bloco de filtros/paginação.
+
+---
+
 ## Ordem de desenvolvimento
 
 ```
@@ -737,8 +809,8 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 4. ~~Models + Relationships~~ ✓
 5. ~~Factories & Seeders~~ ✓
 6. ~~Services~~ ✓
-7. Controllers + Routes + Requests — 🔄 em andamento (Auth ✓, JobOpening ✓, Application ✓, Comment ✓, Notification ✓; Admin pendente)
-8. Policies — 🔄 em andamento (`ApplicationPolicy` ✓, `JobOpeningPolicy` ✓; demais domínios conforme necessidade)
+7. Controllers + Routes + Requests — 🔄 em andamento (Auth ✓, JobOpening ✓, Application ✓, Comment ✓, Notification ✓, Company ✓; `UserController` e convite de usuário interno pendentes)
+8. Policies — 🔄 em andamento (`ApplicationPolicy` ✓, `JobOpeningPolicy` ✓, `CommentPolicy` ✓, `NotificationPolicy` ✓; Company dispensa — role basta)
 9. Swagger
 
 ---
@@ -779,4 +851,6 @@ Infra (✓) → API (em andamento) → Front → Docs → DevOps/CI-CD
 - Fix aplicado em `routes/api.php`: `me/applications` estava sem `auth:sanctum`/`role:candidate` após ser movida de grupo — retornava lista vazia e ficava pública
 - **Módulo Comment completo:** `CommentController` (index/store/destroy), `StoreCommentRequest`, `CommentResource`, `CommentPolicy` (delete = admin ou autor) — todos com PHPDoc, testados via Postman incluindo cenários de Policy (não-autor não-admin → 403, admin → 204, autor → 204). `index`/`store` reutilizam `ApplicationPolicy::view`. Ver seção "Módulo Comment — comentários internos por candidatura"
 - **Módulo Notification completo:** `NotificationController` (index/markAsRead/markAllAsRead), `NotificationResource`, `NotificationPolicy` (read = só o destinatário) — todos com PHPDoc, testados via Postman (403 ao marcar notificação alheia). Sem Request (endpoints sem corpo) e sem `role:` nas rotas. Ver seção "Módulo Notification"
-- **Próximo passo: módulo Admin — `UserController` (`UserService` já existe: list/assignRole/deactivate) + `CompanyController`/`CompanyResource`/`CompanyService` (este último não existe, precisa criar). Aqui também entra o fluxo de convite de usuário interno. Depois: OAuth (`SocialAuthController`, service pronto), password reset, paginação em todas as listagens, e Swagger**
+- **Módulo Company completo:** `CompanyController` (index/show/store/update/destroy), `StoreCompanyRequest`, `UpdateCompanyRequest`, `CompanyResource`, `CompanyService` (com geração de slug única) — todos com PHPDoc. Migration `add_is_active_to_companies` criada e rodada. Model ganhou `jobOpenings()` e cast de `is_active`. Sem Policy (role basta). Testado via Postman ponta a ponta: colisão de slug (`acme-corp` → `acme-corp-2`), slug forjado no body descartado, edição parcial preservando `logo_url`, empresa desativada retornando `404` no show, draft não vazando no `show`, `403` de candidato no store/update. Ver seção "Módulo Company"
+- **Dívida aberta:** `GET /job-openings/{jobOpening}` não filtra status — vaga `draft` visível publicamente por UUID. Corrigir no bloco de filtros/paginação
+- **Próximo passo: fechar o bloco Admin — `UserController` (`UserService` já existe: list/assignRole/deactivate) e o fluxo de convite de usuário interno (fecha o `in:candidate` do `RegisterRequest`). Depois: OAuth (`SocialAuthController`, service pronto), password reset, paginação em todas as listagens, e Swagger**
