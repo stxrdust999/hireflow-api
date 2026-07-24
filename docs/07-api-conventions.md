@@ -255,16 +255,34 @@ GET /api/v1/job-openings?sort=created_at&direction=desc
 - **Resposta expõe `is_read`** (booleano derivado de `read_at`) além do `read_at` em si. `user_id` não é exposto — o endpoint já é escopado no usuário autenticado.
 - Status HTTP: `200` (GET e `{id}/read`, que devolve a notificação atualizada), `204` (`read-all`, sem corpo).
 
+### Empresas
+
+| Método | Endpoint             | Descrição                          | Auth    | Status          |
+| ------ | -------------------- | ---------------------------------- | ------- | --------------- |
+| GET    | `/companies`         | Lista empresas ativas              | Público | ✅ Implementado |
+| GET    | `/companies/{slug}`  | Detalhe + vagas publicadas         | Público | ✅ Implementado |
+| POST   | `/companies`         | Cria empresa                       | Admin   | ✅ Implementado |
+| PUT    | `/companies/{id}`    | Edita empresa (parcial)            | Admin   | ✅ Implementado |
+| DELETE | `/companies/{id}`    | Desativa empresa (não deleta)      | Admin   | ✅ Implementado |
+
+**Decisões:**
+
+- **Recurso público, não sob `/admin`.** O planejamento inicial previa `/admin/companies`, mas `index` e `show` são públicos: o portal de candidatos vai ter uma página por empresa (`/empresas/{slug}`) listando as vagas dela. Só a escrita (`store`/`update`/`destroy`) exige `role:admin`.
+- **`show` busca por `slug`, escrita usa UUID.** O slug é a chave pública legível; o UUID fica nas rotas de gestão. O `show` não usa route model binding — faz busca explícita com `where('is_active', true)->firstOrFail()`, para que empresa desativada devolva `404`. Com binding implícito o registro continuaria acessível por URL mesmo fora da listagem.
+- **`show` traz só vagas publicadas**, via _constrained eager loading_ (`load(['jobOpenings' => fn($q) => $q->where('status', Published)])`). Rascunhos e vagas fechadas não vazam pro público — e nem são trazidos do banco. O filtro é do Controller, não do Resource: Resource formata, não filtra.
+- **Sem Policy.** Empresa não tem dono — não existe "este admin pode editar esta empresa mas não aquela". O `role:admin` na rota já é a decisão inteira, fonte única. Segue a regra fechada no módulo Notification: Policy só quando a autorização depende do recurso, não só do perfil.
+- **`slug` não é aceito no corpo** de nenhuma das Requests — é derivado do `name` no Service (ver `03-database.md`). Mandar `"slug"` no POST é silenciosamente descartado pelo `validated()`.
+- **Resposta usa `whenLoaded` em `job_openings`:** o campo só existe no JSON do `show`. No `index` a relação não é carregada e a chave some — listagem enxuta, sem N+1.
+- Status HTTP: `201` (store), `200` (index/show/update), `204` (destroy, sem corpo), `404` (empresa inativa no show).
+
 ### Admin
 
-| Método | Endpoint                  | Descrição                  | Auth  |
-| ------ | ------------------------- | -------------------------- | ----- |
-| GET    | `/admin/users`            | Lista usuários             | Admin |
-| POST   | `/admin/users`            | Cria usuário interno       | Admin |
-| PATCH  | `/admin/users/{id}/roles` | Atribui roles a um usuário | Admin |
-| DELETE | `/admin/users/{id}`       | Remove usuário             | Admin |
-| GET    | `/admin/companies`        | Lista empresas             | Admin |
-| POST   | `/admin/companies`        | Cria empresa               | Admin |
+| Método | Endpoint                  | Descrição                  | Auth  | Status       |
+| ------ | ------------------------- | -------------------------- | ----- | ------------ |
+| GET    | `/admin/users`            | Lista usuários             | Admin | 🚧 Pendente  |
+| POST   | `/admin/users`            | Cria usuário interno       | Admin | 🚧 Pendente  |
+| PATCH  | `/admin/users/{id}/roles` | Atribui roles a um usuário | Admin | 🚧 Pendente  |
+| DELETE | `/admin/users/{id}`       | Desativa usuário           | Admin | 🚧 Pendente  |
 
 ---
 

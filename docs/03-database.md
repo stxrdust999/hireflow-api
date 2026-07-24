@@ -56,6 +56,7 @@ erDiagram
         string name
         string slug
         string logo_url
+        boolean is_active
     }
     job_openings {
         uuid id PK
@@ -172,13 +173,18 @@ _PK composta: (`user_id`, `role_id`)_
 
 Empresas que publicam vagas no sistema.
 
-| Coluna                      | Tipo             | Descrição                             |
-| --------------------------- | ---------------- | ------------------------------------- |
-| `id`                        | uuid, PK         | —                                     |
-| `name`                      | string           | Nome da empresa                       |
-| `slug`                      | string, unique   | Identificador para URLs (`acme-corp`) |
-| `logo_url`                  | string, nullable | URL do logotipo                       |
-| `created_at` / `updated_at` | timestamp        | —                                     |
+| Coluna                      | Tipo               | Descrição                                    |
+| --------------------------- | ------------------ | -------------------------------------------- |
+| `id`                        | uuid, PK           | —                                            |
+| `name`                      | string             | Nome da empresa                              |
+| `slug`                      | string, unique     | Identificador para URLs (`acme-corp`)        |
+| `logo_url`                  | string, nullable   | URL do logotipo                              |
+| `is_active`                 | boolean, default 1 | Desativação lógica (migration separada)      |
+| `created_at` / `updated_at` | timestamp          | —                                            |
+
+**Decisão — `slug` gerado pela aplicação, nunca pelo cliente.** O slug é a chave de _lookup_ público (`/empresas/acme-corp` no front); o `id` continua sendo a chave interna e a FK. O `CompanyService` deriva o slug do `name` via `Str::slug()` — que já normaliza acento, espaço e caixa — e resolve colisão com sufixo numérico (`acme-corp`, `acme-corp-2`). O `unique` do banco permanece como rede real contra _race condition_; o loop só deixa o caso comum limpo. O slug é **congelado após a criação**: renomear a empresa não regera o slug, senão todo link já compartilhado quebraria.
+
+**Decisão — `is_active` em vez de delete.** A FK `job_openings.company_id` é `cascadeOnDelete`, então apagar uma empresa levaria junto vagas, `job_stages`, `applications` e toda a trilha em `application_stage_logs`. Como a auditoria é requisito do domínio, `DELETE /companies/{id}` faz desativação lógica. Mesma decisão (e mesmo motivo) do `is_active` em `users`. Soft delete do Laravel foi considerado, mas `is_active` é mais explícito para o domínio e mantém consistência com o que já existia.
 
 ---
 
